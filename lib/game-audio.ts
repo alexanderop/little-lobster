@@ -1,0 +1,42 @@
+import type { GameEvent } from './game-model';
+export class OceanAudio {
+  private context: AudioContext | null = null;
+  muted = true;
+  enable() {
+    this.muted = false;
+    this.context ??= new AudioContext();
+    void this.context.resume().catch(() => {
+      this.muted = true;
+    });
+  }
+  play(event: GameEvent) {
+    if (this.muted || !this.context || this.context.state !== 'running') return;
+    const context = this.context,
+      oscillator = context.createOscillator(),
+      gain = context.createGain();
+    const notes = {
+      pearl: 880,
+      dash: 220,
+      hurt: 130,
+      checkpoint: 660,
+      friend: 740,
+      defeat: 440,
+      win: 1046,
+    };
+    oscillator.type = event.kind === 'hurt' ? 'triangle' : 'sine';
+    oscillator.frequency.setValueAtTime(notes[event.kind], context.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(
+      notes[event.kind] * 1.5,
+      context.currentTime + 0.14,
+    );
+    gain.gain.setValueAtTime(0.07, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.28);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.3);
+  }
+  destroy() {
+    if (this.context) void this.context.close().catch(() => {});
+  }
+}
