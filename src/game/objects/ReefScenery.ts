@@ -10,8 +10,15 @@ export class ReefScenery {
     private scene: Phaser.Scene,
     private level: Level = generateLevel(),
   ) {
-    const texture =
-      level.biome === 'kelp' ? 'kelp-forest-props' : 'crystal-cave-props';
+    const surreal =
+      level.biome === 'candy' ||
+      level.biome === 'toybox' ||
+      level.biome === 'neon';
+    const texture = surreal
+      ? `${level.biome}-props`
+      : level.biome === 'kelp'
+        ? 'kelp-forest-props'
+        : 'crystal-cave-props';
     if (level.biome !== 'reef') {
       for (let i = 0; i < 15; i++) {
         const x = 240 + i * 250;
@@ -36,7 +43,12 @@ export class ReefScenery {
         this.ledges.push({
           x: platform.x,
           image: scene.add
-            .image(platform.x, platform.y - 5, texture, 'platform')
+            .image(
+              platform.x,
+              platform.y - (surreal ? 0 : 5),
+              texture,
+              'platform',
+            )
             .setOrigin(0)
             .setDisplaySize(platform.width, 65)
             .setDepth(-5),
@@ -80,7 +92,7 @@ export class ReefScenery {
       .setOrigin(0)
       .setDepth(-5)
       .setTileScale(0.5);
-    if (level.biome !== 'reef') this.floor.setTileScale(0.5, 0.6);
+    if (level.biome !== 'reef') this.floor.setTileScale(0.5, surreal ? 1 : 0.6);
   }
 
   render(cameraX: number) {
@@ -99,7 +111,9 @@ export class ReefScenery {
               ? 'reef-distant'
               : this.level.biome === 'kelp'
                 ? 'kelp-forest-background'
-                : 'crystal-cave-background',
+                : this.level.biome === 'crystal'
+                  ? 'crystal-cave-background'
+                  : `${this.level.biome}-background`,
           )
           .setOrigin(0)
           .setDepth(-20),

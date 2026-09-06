@@ -1,4 +1,5 @@
 import * as Phaser from 'phaser';
+import { createWildWorldTextures } from '../objects/wild-world-textures';
 
 export class Preloader extends Phaser.Scene {
   private failed = false;
@@ -10,6 +11,10 @@ export class Preloader extends Phaser.Scene {
     this.onError(new Error(`Could not load ${file.key}`));
   };
   preload() {
+    this.load.spritesheet('gorilla-poses', '/assets/gorilla-poses.png', {
+      frameWidth: 256,
+      frameHeight: 256,
+    });
     this.load.spritesheet('lobster-poses', '/assets/lobster-poses.png', {
       frameWidth: 256,
       frameHeight: 288,
@@ -19,10 +24,15 @@ export class Preloader extends Phaser.Scene {
       this.load.image(`${biome}-background`, `/assets/${biome}-background.png`);
       this.load.image(`${biome}-props`, `/assets/${biome}-props.png`);
     }
+    for (const biome of ['candy', 'toybox', 'neon'])
+      this.load.image(`${biome}-background`, `/assets/${biome}-background.png`);
     this.load.image('reef-distant', '/assets/reef-distant.png');
     this.load.image('reef-props', '/assets/reef-props.png');
     this.load.image('costume-cat', '/assets/costume-cat.png');
     this.load.image('electro-orb', '/assets/electro-orb.png');
+    for (const kind of ['shark-raccoon', 'puffer-hedgehog', 'crab-crocodile'])
+      this.load.image(kind, `/assets/${kind}.png`);
+    this.load.image('wild-enemies', '/assets/wild-enemies.png');
     this.load.image('creatures', '/assets/creatures.png');
     this.load.on('loaderror', this.loadFailed);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
@@ -31,6 +41,7 @@ export class Preloader extends Phaser.Scene {
   }
   create() {
     if (this.failed) return;
+    createWildWorldTextures(this);
     for (const biome of ['kelp-forest', 'crystal-cave']) {
       const texture = this.textures.get(`${biome}-props`);
       const kelp = biome === 'kelp-forest';
@@ -48,6 +59,9 @@ export class Preloader extends Phaser.Scene {
     props.add('pearl', 0, 1030, 86, 303, 300);
     props.add('shell-house', 0, 189, 447, 472, 483);
     props.add('reward-block', 0, 970, 520, 409, 402);
+    const wild = this.textures.get('wild-enemies');
+    wild.add('sepia-dog', 0, 20, 30, 695, 930);
+    wild.add('gorilla', 0, 715, 20, 821, 950);
     const atlas = this.textures.get('creatures');
     atlas.add('sepia', 0, 0, 0, 627, 605);
     atlas.add('catfish', 0, 627, 0, 627, 605);

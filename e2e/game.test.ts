@@ -142,7 +142,7 @@ test('the first pearl guarantees electro power and enables the firing control', 
   await expect(page.getByText(/^Electro \d+s$/)).toHaveCount(0);
 });
 
-test('saved journey plays through kelp, advances to crystal caves and resumes after reload', async ({
+test('saved journey advances through generated levels and resumes after reload', async ({
   page,
   isMobile,
 }) => {
@@ -150,13 +150,13 @@ test('saved journey plays through kelp, advances to crystal caves and resumes af
   await page.evaluate(() =>
     localStorage.setItem(
       'little-lobster-journey-v1',
-      JSON.stringify({ version: 1, level: 2, seed: 52, pearls: 24 }),
+      JSON.stringify({ version: 1, level: 8, seed: 52, pearls: 24 }),
     ),
   );
   await page.reload();
   await page.getByRole('button', { name: 'Let’s play' }).click();
   await expect(
-    page.getByText('Level 2 · Kelp Forest', { exact: true }),
+    page.getByText('Level 8 · Kelp Forest', { exact: true }),
   ).toBeVisible();
   await page.screenshot({
     path: `test-results/kelp-${isMobile ? 'mobile' : 'desktop'}.png`,
@@ -172,7 +172,7 @@ test('saved journey plays through kelp, advances to crystal caves and resumes af
   await expect(next).toBeFocused();
   await next.click();
   await expect(
-    page.getByText('Level 3 · Crystal Caves', { exact: true }),
+    page.getByText('Level 9 · Crystal Caves', { exact: true }),
   ).toBeVisible();
   await expect(page.locator('.phaser-host')).toBeFocused();
   await page.screenshot({
@@ -181,7 +181,7 @@ test('saved journey plays through kelp, advances to crystal caves and resumes af
   await page.reload();
   await page.getByRole('button', { name: 'Let’s play' }).click();
   await expect(
-    page.getByText('Level 3 · Crystal Caves', { exact: true }),
+    page.getByText('Level 9 · Crystal Caves', { exact: true }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Pause game' }).click();
   await page.getByRole('button', { name: 'Start over' }).click();
@@ -246,4 +246,44 @@ test('touch controls and game fit small phones in both orientations', async ({
   await expect(
     page.getByRole('button', { name: 'Jump', exact: true }),
   ).toBeInViewport({ ratio: 1 });
+});
+
+test('saved Current School opens with its course objective and playable current', async ({
+  page,
+  isMobile,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'little-lobster-journey-v1',
+      JSON.stringify({ version: 1, level: 2, seed: 42, pearls: 20 }),
+    );
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Let’s play' }).click();
+  await expect(
+    page.getByText(
+      'Current School · Ride the bubbles up. Follow the high pearls!',
+    ),
+  ).toBeVisible();
+  await expect(page.getByLabel('0 of 12 pearls')).toBeVisible();
+  await expect(page.getByLabel('0 of 1 golden pearls')).toBeVisible();
+  await page.keyboard.down('ArrowRight');
+  await page.keyboard.down('ArrowDown');
+  await expect
+    .poll(
+      async () =>
+        Number(
+          await page.getByRole('progressbar').getAttribute('aria-valuenow'),
+        ),
+      { intervals: [16] },
+    )
+    .toBeGreaterThanOrEqual(16);
+  await page.keyboard.up('ArrowRight');
+  await page.keyboard.up('ArrowDown');
+  await expect
+    .poll(async () => page.locator('.pearl-score').getAttribute('aria-label'))
+    .toMatch(/^[3-9] of 12 pearls$/);
+  await page.screenshot({
+    path: `test-results/current-school-${isMobile ? 'mobile' : 'desktop'}.png`,
+  });
 });

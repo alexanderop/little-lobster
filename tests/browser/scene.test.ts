@@ -156,11 +156,13 @@ test('all enemy species animate their body parts and reset after defeat', async 
   for (const creature of createGame().creatures) {
     const view = new EnemyView(scene, creature);
     const pose = () =>
-      view.container.list.map((part) => {
-        if (!(part instanceof Phaser.GameObjects.Image))
-          throw new Error('Enemy part missing');
-        return { x: part.x, y: part.y };
-      });
+      view.container.list
+        .filter((part) => part instanceof Phaser.GameObjects.Image)
+        .map((part) => {
+          if (!(part instanceof Phaser.GameObjects.Image))
+            throw new Error('Enemy part missing');
+          return { x: part.x, y: part.y };
+        });
     view.render(creature, 0, 0);
     const initial = pose();
     view.render(creature, 0.2, 0);
@@ -333,8 +335,8 @@ test('unlocking treasure grows and lifts the pearl, pauses, settles, and resets 
 });
 
 test('successive levels replace scene objects, clear held input, and use each biome texture', async () => {
-  const { scene } = await boot(createGame(generateLevel(2, 52)));
-  for (let level = 2; level < 8; level++) {
+  const { scene } = await boot(createGame(generateLevel(3, 52)));
+  for (let level = 3; level < 8; level++) {
     expect(scene.snapshot().level).toBe(level);
     const textures = scene.children.list
       .filter(
@@ -343,11 +345,16 @@ test('successive levels replace scene objects, clear held input, and use each bi
       )
       .map((image) => image.texture.key);
     expect(textures).toContain(
-      level % 3 === 2
-        ? 'kelp-forest-background'
-        : level % 3 === 0
-          ? 'crystal-cave-background'
-          : 'reef-distant',
+      [
+        '',
+        '',
+        'kelp-forest-background',
+        'crystal-cave-background',
+        'candy-background',
+        'toybox-background',
+        'neon-background',
+        'reef-distant',
+      ][level],
     );
     scene.setInput({ ...idleInput(), right: true, down: true });
     for (
@@ -376,3 +383,102 @@ test('successive levels replace scene objects, clear held input, and use each bi
   expect(scene.snapshot().totalPearls).toBe(0);
   expect(scene.children.getByName('lobster')).toBeTruthy();
 }, 30000);
+
+test('boss health, charge warning, and hostile electric balls render and reset', async () => {
+  const state = createGame();
+  const enemy = state.creatures.find((enemy) => enemy.boss);
+  if (!enemy?.boss) throw new Error('Missing boss');
+  state.player.x = enemy.x - 300;
+  const { scene } = await boot(state);
+  const label = scene.children.getByName('boss-health');
+  if (!(label instanceof Phaser.GameObjects.Text))
+    throw new Error('Missing boss HP');
+  expect(label.text).toBe('BIGFIN  8/8 HP');
+  enemy.boss.health = 4;
+  enemy.boss.cooldown = 0.3;
+  scene.update(0, 17);
+  expect(label.text).toContain('4/8 HP · CHARGING!');
+  enemy.boss.cooldown = 0;
+  scene.update(17, 17);
+  const shot = scene.children.getByName('electro-orb');
+  if (!(shot instanceof Phaser.GameObjects.Image))
+    throw new Error('Missing boss shot');
+  expect(shot.displayWidth).toBeCloseTo(52);
+  expect(shot.tintTopLeft).toBe(0xff88ee);
+  scene.restart();
+  expect(label.text).toBe('BIGFIN  8/8 HP');
+  expect(scene.children.getByName('electro-orb')).toBeNull();
+});
+
+test('Current School renders four rings, one correctly labelled reward, and lifts the lobster in its first current', async () => {
+  const state = createGame(generateLevel(2, 52));
+  const { scene } = await boot(state);
+  expect(scene.snapshot().challenge).toContain('Current School');
+  expect(scene.snapshot().requiredPearls).toBe(12);
+  expect(scene.snapshot().treasureTotal).toBe(1);
+  expect(
+    scene.children.list.filter((child) => child.name.startsWith('trial-ring-')),
+  ).toHaveLength(4);
+  expect(
+    scene.children.list.some(
+      (child) =>
+        child instanceof Phaser.GameObjects.Text &&
+        child.text === 'Finish the rings',
+    ),
+  ).toBe(true);
+  scene.setInput({ ...idleInput(), right: true, down: true });
+  for (let frame = 0; frame < 65; frame++) scene.update(frame * 17, 1000 / 60);
+  scene.setInput(idleInput());
+  for (let frame = 0; frame < 70; frame++) scene.update(frame * 17, 1000 / 60);
+  const lobster = scene.children.getByName('lobster');
+  if (!(lobster instanceof Phaser.GameObjects.Sprite))
+    throw new Error('Lobster missing');
+  expect(lobster.y).toBeLessThan(350);
+  expect(scene.snapshot().pearls).toBeGreaterThanOrEqual(3);
+  scene.pause(true);
+  const paused = scene.snapshot();
+  scene.update(0, 1000);
+  expect(scene.snapshot()).toEqual(paused);
+});
+
+test('gorilla shows two HP, animates windup and release, and renders spinning bananas', async () => {
+  const state = createGame();
+  const enemy = state.creatures.find((enemy) => enemy.kind === 'gorilla');
+  if (!enemy?.boss) throw new Error('Missing gorilla');
+  state.blocks = [];
+  state.player.x = enemy.x - 250;
+  state.player.y = enemy.y;
+  const { scene } = await boot(state);
+  const container = scene.children.getByName('enemy-' + enemy.id);
+  if (!(container instanceof Phaser.GameObjects.Container))
+    throw new Error('Missing gorilla view');
+  const pose = container.getByName('gorilla-pose');
+  const label = container.getByName('gorilla-health');
+  if (
+    !(pose instanceof Phaser.GameObjects.Image) ||
+    !(label instanceof Phaser.GameObjects.Text)
+  )
+    throw new Error('Missing gorilla art or HP');
+  expect(label.text).toContain('2/2 HP');
+  enemy.boss.cooldown = 0.3;
+  scene.update(0, 16);
+  expect(pose.frame.name).toBe(1);
+  expect(label.text).toContain('THROW!');
+  enemy.boss.cooldown = 0;
+  scene.update(16, 16);
+  expect(pose.frame.name).toBe(2);
+  const banana = scene.children.getByName('banana');
+  if (!(banana instanceof Phaser.GameObjects.Image))
+    throw new Error('Missing banana');
+  expect(banana.frame.name).toBe(3);
+  const rotation = banana.rotation;
+  scene.update(32, 16);
+  expect(banana.rotation).not.toBe(rotation);
+  enemy.boss.health = 1;
+  enemy.boss.hurtTime = 0.4;
+  scene.update(48, 16);
+  expect(label.text).toContain('1/2 HP');
+  expect(pose.tintTopLeft).toBe(0xff9999);
+  scene.restart();
+  expect(scene.children.getByName('banana')).toBeNull();
+});

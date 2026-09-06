@@ -31,6 +31,7 @@ export const pearlBlocks = [
   { x: 5680, y: 425 },
 ];
 export const reefTrial = {
+  treasureIndex: 1,
   seconds: 4,
   rings: [
     { x: 1710, y: 270 },
@@ -74,12 +75,24 @@ export const TOTAL_PEARLS =
 export const region = (x: number) => (x < 2350 ? 0 : x < 4500 ? 1 : 2);
 export const regionNames = ['Sunlit Reef', 'Inky Gardens', 'The Blue Below'];
 
-export type Biome = 'reef' | 'kelp' | 'crystal';
-export type CreatureKind = 'catfish' | 'sepia' | 'bigfin' | 'costume-cat';
+export type Biome = 'reef' | 'kelp' | 'crystal' | 'candy' | 'toybox' | 'neon';
+export type CreatureKind =
+  | 'catfish'
+  | 'sepia'
+  | 'bigfin'
+  | 'costume-cat'
+  | 'sepia-dog'
+  | 'gorilla'
+  | 'shark-raccoon'
+  | 'puffer-hedgehog'
+  | 'crab-crocodile';
 export const biomeNames = {
   reef: 'Sunlit Reef',
   kelp: 'Kelp Forest',
   crystal: 'Crystal Caves',
+  candy: 'Candy Reef',
+  toybox: 'Toybox Trench',
+  neon: 'Neon Abyss',
 };
 export type Level = {
   number: number;
@@ -89,7 +102,11 @@ export type Level = {
   platforms: Platform[];
   pearls: { x: number; y: number }[];
   blocks: { x: number; y: number }[];
-  trial: { seconds: number; rings: { x: number; y: number }[] };
+  trial: {
+    seconds: number;
+    treasureIndex: number;
+    rings: { x: number; y: number }[];
+  };
   treasures: { x: number; y: number; name: string }[];
   currents: { x: number; width: number; top: number; speed: number }[];
   checkpointX: number;
@@ -102,14 +119,77 @@ const sections = [
   { name: 'Coral steps', heights: [530, 440, 350], kind: 'catfish' },
   { name: 'High shelves', heights: [420, 310, 420], kind: 'sepia' },
   { name: 'Pearl garden', heights: [510, 490, 510], kind: 'costume-cat' },
-  { name: 'Twin towers', heights: [330, 480, 330], kind: 'catfish' },
+  { name: 'Tentacle kennel', heights: [330, 480, 330], kind: 'sepia-dog' },
   { name: 'Gentle descent', heights: [330, 420, 510], kind: 'sepia' },
   { name: 'Open water', heights: [480, 350, 480], kind: 'bigfin' },
   { name: 'Hidden shelf', heights: [460, 300, 460], kind: 'costume-cat' },
-  { name: 'Stepping stones', heights: [520, 400, 520], kind: 'catfish' },
+  { name: 'Gorilla lagoon', heights: [520, 400, 520], kind: 'gorilla' },
 ] satisfies { name: string; heights: number[]; kind: CreatureKind }[];
 
+function currentSchool(seed: number): Level {
+  return {
+    number: 2,
+    seed,
+    biome: 'kelp',
+    world: { ...WORLD, width: 3000, exitX: 2800, requiredPearls: 12 },
+    sections: ['Current School', 'Catch the next current', 'The golden run'],
+    platforms: [
+      { x: 650, y: 440, width: 200, height: 28 },
+      { x: 1130, y: 380, width: 160, height: 28 },
+      { x: 1510, y: 420, width: 200, height: 28 },
+      { x: 2420, y: 410, width: 170, height: 28 },
+    ],
+    pearls: [
+      { x: 300, y: 575 },
+      { x: 480, y: 530 },
+      { x: 480, y: 440 },
+      { x: 480, y: 350 },
+      { x: 620, y: 320 },
+      { x: 760, y: 350 },
+      { x: 980, y: 460 },
+      { x: 980, y: 350 },
+      { x: 980, y: 260 },
+      { x: 1150, y: 250 },
+      { x: 1320, y: 290 },
+      { x: 1390, y: 390 },
+      { x: 1390, y: 290 },
+      { x: 1560, y: 290 },
+      { x: 1700, y: 350 },
+      { x: 1950, y: 460 },
+      { x: 1950, y: 350 },
+      { x: 1950, y: 260 },
+      { x: 2130, y: 250 },
+      { x: 2310, y: 260 },
+      { x: 2490, y: 300 },
+      { x: 2690, y: 575 },
+    ],
+    blocks: [],
+    currents: [
+      { x: 480, width: 200, top: 310, speed: 300 },
+      { x: 980, width: 170, top: 230, speed: 340 },
+      { x: 1390, width: 170, top: 260, speed: 340 },
+      { x: 1950, width: 190, top: 230, speed: 340 },
+      { x: 2310, width: 150, top: 230, speed: 320 },
+    ],
+    trial: {
+      seconds: 5,
+      treasureIndex: 0,
+      rings: [
+        { x: 1950, y: 260 },
+        { x: 2130, y: 250 },
+        { x: 2310, y: 260 },
+        { x: 2490, y: 300 },
+      ],
+    },
+    treasures: [{ x: 2570, y: 290, name: 'Surfer pearl' }],
+    checkpointX: 1750,
+    friendX: 2630,
+    encounters: [],
+  };
+}
+
 export function generateLevel(number = 1, seed = 1): Level {
+  if (number === 2) return currentSchool(seed);
   if (number === 1)
     return {
       number,
@@ -138,7 +218,17 @@ export function generateLevel(number = 1, seed = 1): Level {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
   const biome: Biome =
-    number % 3 === 2 ? 'kelp' : number % 3 === 0 ? 'crystal' : 'reef';
+    number % 6 === 2
+      ? 'kelp'
+      : number % 6 === 3
+        ? 'crystal'
+        : number % 6 === 4
+          ? 'candy'
+          : number % 6 === 5
+            ? 'toybox'
+            : number % 6 === 0
+              ? 'neon'
+              : 'reef';
   const calm = number % 4 === 0;
   const pool = [...sections];
   const level: Level = {
@@ -149,7 +239,7 @@ export function generateLevel(number = 1, seed = 1): Level {
     platforms: [],
     pearls: [],
     blocks: [],
-    trial: { seconds: 4, rings: [] },
+    trial: { seconds: 4, treasureIndex: 0, rings: [] },
     treasures: [],
     currents: [],
     checkpointX: 1900,
@@ -167,7 +257,17 @@ export function generateLevel(number = 1, seed = 1): Level {
       level.pearls.push({ x: start + pearl * 110, y: 575 });
     choice.heights.forEach((height, step) => {
       const x = start + step * 170;
-      const y = height + Math.floor(random() * 3) * 10;
+      const shapeHeight =
+        biome === 'candy'
+          ? ([490, 380, 490][step] ?? height)
+          : biome === 'toybox'
+            ? 510 - step * 80
+            : biome === 'neon'
+              ? step === 1
+                ? 500
+                : 330
+              : height;
+      const y = shapeHeight + Math.floor(random() * 3) * 10;
       level.platforms.push({
         x,
         y,
@@ -177,11 +277,19 @@ export function generateLevel(number = 1, seed = 1): Level {
       level.pearls.push({ x: x + 55, y: y - 55 });
     });
     level.blocks.push({ x: start + 520, y: 390 });
+    const kind =
+      choice.kind === 'catfish' && number % 2 === 0
+        ? 'shark-raccoon'
+        : choice.kind === 'costume-cat' && index % 2 === 0
+          ? 'puffer-hedgehog'
+          : choice.kind === 'sepia' && number % 2 === 1
+            ? 'crab-crocodile'
+            : choice.kind;
     if (!calm || index % 2 === 0)
       level.encounters.push({
         x: start + 250,
         y: choice.kind === 'bigfin' ? 230 : 340,
-        kind: choice.kind,
+        kind,
       });
     if (index % (biome === 'kelp' ? 2 : 3) === 0)
       level.currents.push({

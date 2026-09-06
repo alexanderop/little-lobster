@@ -33,6 +33,13 @@ export type Creature = {
   homeY: number;
   radius: number;
   active: boolean;
+  boss: {
+    health: number;
+    maxHealth: number;
+    cooldown: number;
+    hurtTime: number;
+    throwTime: number;
+  } | null;
 };
 export type Pearl = { x: number; y: number; collected: boolean };
 export type GameEvent = {
@@ -92,6 +99,15 @@ export type GameState = {
     jumpBuffer: number;
   };
   electroPickups: { x: number; y: number; life: number }[];
+  bananas: {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    life: number;
+    owner: number;
+  }[];
+  bossBalls: { x: number; y: number; vx: number; vy: number; life: number }[];
   electroBalls: { x: number; y: number; vx: number; life: number }[];
   checkpoint: boolean;
   friend: boolean;
@@ -103,7 +119,7 @@ export function createGame(
   bankedPearls = 0,
 ): GameState {
   const pearls = level.pearls.map((pearl) => ({ ...pearl, collected: false }));
-  const creatures: Creature[] = [
+  const creatures: Omit<Creature, 'boss'>[] = [
     {
       id: 0,
       kind: 'catfish',
@@ -190,6 +206,24 @@ export function createGame(
       active: true,
     });
   }
+  for (const [kind, x, y, radius] of [
+    ['sepia-dog', 2380, 330, 42],
+    ['gorilla', 4800, 360, 54],
+    ['shark-raccoon', 2780, 240, 40],
+    ['puffer-hedgehog', 3450, 350, 40],
+    ['crab-crocodile', 5150, 410, 40],
+  ] satisfies [CreatureKind, number, number, number][]) {
+    creatures.push({
+      id: creatures.length,
+      kind,
+      x,
+      y,
+      homeX: x,
+      homeY: y,
+      radius,
+      active: true,
+    });
+  }
   if (level.number > 1) {
     creatures.splice(
       0,
@@ -199,7 +233,8 @@ export function createGame(
         id,
         homeX: enemy.x,
         homeY: enemy.y,
-        radius: enemy.kind === 'bigfin' ? 72 : 40,
+        radius:
+          enemy.kind === 'bigfin' ? 72 : enemy.kind === 'gorilla' ? 54 : 40,
         active: true,
       })),
     );
@@ -218,7 +253,27 @@ export function createGame(
     status: 'playing',
     elapsed: 0,
     pearls,
-    creatures,
+    creatures: creatures.map((creature) => ({
+      ...creature,
+      boss:
+        creature.kind === 'bigfin'
+          ? {
+              health: 8,
+              maxHealth: 8,
+              cooldown: 1.8,
+              hurtTime: 0,
+              throwTime: 0,
+            }
+          : creature.kind === 'gorilla'
+            ? {
+                health: 2,
+                maxHealth: 2,
+                cooldown: 1.8,
+                hurtTime: 0,
+                throwTime: 0,
+              }
+            : null,
+    })),
     blocks: level.blocks.map((block) => ({ ...block, used: false, bump: 0 })),
     player: {
       x: 160,
@@ -240,6 +295,8 @@ export function createGame(
     },
     electroPickups: [],
     electroBalls: [],
+    bossBalls: [],
+    bananas: [],
     checkpoint: false,
     friend: false,
     ink: 0,
@@ -276,6 +333,15 @@ export function continueGame(state: GameState) {
   });
   state.electroPickups = [];
   state.electroBalls = [];
+  state.bossBalls = [];
+  state.bananas = [];
+  for (const enemy of state.creatures) {
+    if (!enemy.boss || !enemy.active) continue;
+    enemy.boss.health = enemy.boss.maxHealth;
+    enemy.boss.cooldown = 1.8;
+    enemy.boss.hurtTime = 0;
+    enemy.boss.throwTime = 0;
+  }
   state.ink = 0;
   state.stompChain = 0;
   if (state.level.number === 1 && !state.treasures[0]?.unlocked)
@@ -432,7 +498,7 @@ export function advance(
     p.dashCooldown = 0;
     if (ringIndex === state.level.trial.rings.length - 1) {
       state.ringTrial = { kind: 'complete' };
-      const treasure = state.treasures[1];
+      const treasure = state.treasures[state.level.trial.treasureIndex];
       if (treasure) {
         treasure.unlocked = true;
         state.events.push({
@@ -519,8 +585,37 @@ export function advance(
     p.invincible = 5;
     state.events.push({ kind: 'friend', x: p.x, y: p.y });
   }
+  const hurtPlayer = (sourceX: number) => {
+    if (p.invincible > 0 || p.dashTime > 0) return;
+    p.health--;
+    state.stompChain = 0;
+    p.electroTime = 0;
+    p.invincible = 1.8;
+    p.vy = -200;
+    const knockback = Math.sign(p.x - sourceX) || -p.facing;
+    p.x = clamp(p.x + knockback * 65, 36, state.level.world.width - 36);
+    state.events.push({ kind: 'hurt', x: p.x, y: p.y });
+    if (p.health <= 0) state.status = 'lost';
+  };
   for (const enemy of state.creatures) {
     if (!enemy.active) continue;
+    if (enemy.boss) enemy.boss.hurtTime = Math.max(0, enemy.boss.hurtTime - dt);
+    if (enemy.boss)
+      enemy.boss.throwTime = Math.max(0, enemy.boss.throwTime - dt);
+    const damageBoss = () => {
+      if (!enemy.boss || enemy.boss.hurtTime > 0) return;
+      enemy.boss.health = Math.max(0, enemy.boss.health - 1);
+      enemy.boss.hurtTime = 0.45;
+      if (enemy.boss.health === 0) {
+        enemy.active = false;
+        if (enemy.kind === 'gorilla')
+          state.bananas = state.bananas.filter(
+            (banana) => banana.owner !== enemy.id,
+          );
+        else state.bossBalls = [];
+        state.events.push({ kind: 'defeat', x: enemy.x, y: enemy.y });
+      }
+    };
     enemy.x =
       enemy.homeX +
       Math.sin(
@@ -537,21 +632,69 @@ export function advance(
     if (hit) {
       hit.life = 0;
       state.events.push({ kind: 'electro-hit', x: enemy.x, y: enemy.y });
-      if (enemy.kind !== 'bigfin') {
+      if (enemy.boss) {
+        damageBoss();
+        if (!enemy.active) continue;
+      } else {
         enemy.active = false;
         continue;
       }
     }
     const d = distance(p, enemy);
+    if (enemy.boss) {
+      if (d < 650) {
+        enemy.boss.cooldown = Math.max(0, enemy.boss.cooldown - dt);
+        if (enemy.boss.cooldown === 0) {
+          const aim = Math.atan2(p.y - enemy.y, p.x - enemy.x);
+          if (enemy.kind === 'gorilla') {
+            enemy.boss.throwTime = 0.25;
+            const facing = p.x < enemy.x ? -1 : 1;
+            const x = enemy.x + facing * 66;
+            const y = enemy.y - 28;
+            const flight = Math.max(0.65, Math.abs(p.x - x) / 300);
+            state.bananas.push({
+              x,
+              y,
+              vx: (p.x - x) / flight,
+              vy: (p.y - y) / flight - 180 * flight,
+              life: 3,
+              owner: enemy.id,
+            });
+          } else
+            state.bossBalls.push({
+              x: enemy.x + Math.cos(aim) * 85,
+              y: enemy.y + Math.sin(aim) * 85,
+              vx: Math.cos(aim) * 270,
+              vy: Math.sin(aim) * 270,
+              life: 3,
+            });
+          enemy.boss.cooldown =
+            enemy.kind === 'gorilla'
+              ? 1.8
+              : enemy.boss.health <= enemy.boss.maxHealth / 2
+                ? 1.15
+                : 1.8;
+          if (enemy.kind !== 'gorilla')
+            state.events.push({ kind: 'electro-shot', x: enemy.x, y: enemy.y });
+        }
+      } else enemy.boss.cooldown = 1.8;
+    }
     if (
-      enemy.kind === 'sepia' &&
+      (enemy.kind === 'sepia' || enemy.kind === 'sepia-dog') &&
       d < 165 &&
       Math.sin(state.elapsed * 1.4 + enemy.id) > 0.8
     )
       state.ink = 0.75;
     if (d < enemy.radius + 27) {
       const stomp = p.vy > 60 && oldY < enemy.y - enemy.radius * 0.65;
-      if (stomp && enemy.kind !== 'bigfin') {
+      if (enemy.boss && (stomp || p.dashTime > 0)) {
+        damageBoss();
+        if (stomp) {
+          p.vy = -360;
+          p.grounded = false;
+          state.events.push({ kind: 'stomp', x: enemy.x, y: enemy.y });
+        }
+      } else if (stomp) {
         enemy.active = false;
         state.stompChain++;
         if (state.stompChain >= 3) {
@@ -572,21 +715,38 @@ export function advance(
         enemy.active = false;
         state.events.push({ kind: 'defeat', x: enemy.x, y: enemy.y });
       } else if (p.invincible === 0 && p.dashTime === 0) {
-        p.health--;
-        state.stompChain = 0;
-        p.electroTime = 0;
-        p.invincible = 1.8;
-        p.vy = -200;
-        const knockback = Math.sign(p.x - enemy.x) || -p.facing;
-        p.x = clamp(p.x + knockback * 65, 36, state.level.world.width - 36);
-        state.events.push({ kind: 'hurt', x: p.x, y: p.y });
-        if (p.health <= 0) {
-          state.status = 'lost';
-          return;
-        }
+        hurtPlayer(enemy.x);
+        if (p.health <= 0) return;
       }
     }
   }
+  for (const banana of state.bananas) banana.vy += 360 * dt;
+  for (const ball of [...state.bossBalls, ...state.bananas]) {
+    ball.x += ball.vx * dt;
+    ball.y += ball.vy * dt;
+    ball.life -= dt;
+    if (ball.life <= 0) continue;
+    if (
+      ball.x < 0 ||
+      ball.x > state.level.world.width ||
+      ball.y < 60 ||
+      ball.y > state.level.world.floor ||
+      state.blocks.some(
+        (block) =>
+          Math.abs(ball.x - block.x) < 38 && Math.abs(ball.y - block.y) < 38,
+      )
+    ) {
+      ball.life = 0;
+      continue;
+    }
+    if (distance(ball, p) < 43) {
+      ball.life = 0;
+      hurtPlayer(ball.x);
+      if (p.health <= 0) return;
+    }
+  }
+  state.bananas = state.bananas.filter((banana) => banana.life > 0);
+  state.bossBalls = state.bossBalls.filter((ball) => ball.life > 0);
   state.electroBalls = state.electroBalls.filter((ball) => ball.life > 0);
   if (
     p.x > state.level.world.exitX - 75 &&
@@ -599,14 +759,49 @@ export function advance(
 }
 
 export function adventureHint(state: GameState): string {
+  if (
+    state.creatures.some(
+      (enemy) =>
+        enemy.active &&
+        enemy.kind === 'gorilla' &&
+        distance(state.player, enemy) < 650,
+    )
+  )
+    return 'Gorilla · 2 HP. Dodge bananas. Dash, stomp, or shoot twice!';
+  if (
+    state.creatures.some(
+      (enemy) =>
+        enemy.active &&
+        enemy.kind === 'bigfin' &&
+        enemy.boss &&
+        distance(state.player, enemy) < 650,
+    )
+  )
+    return 'Bigfin · Dodge electric balls. Dash, stomp, or shoot to deal damage!';
+  if (state.ringTrial.kind === 'racing')
+    return `Ring ${state.ringTrial.nextRing + 1}/${state.level.trial.rings.length} · ${state.ringTrial.remaining.toFixed(1)}s · Dash refilled!`;
+  if (state.level.number === 2) {
+    if (state.player.x < 850)
+      return 'Current School · Ride the bubbles up. Follow the high pearls!';
+    if (state.player.x < 1750)
+      return 'Dash across to the next current. The seabed is a safe landing.';
+    if (state.ringTrial.kind === 'complete')
+      return state.treasures[0]?.collected
+        ? 'Surfer pearl found! Follow the shell →'
+        : 'Golden pearl unlocked! Collect it beyond the last ring.';
+    if (
+      pearlCount(state) < state.level.world.requiredPearls &&
+      state.player.x > 2600
+    )
+      return 'Need more pearls? Ride back up the currents to collect the high trail.';
+    return 'Optional: 4 rings in 5 seconds · Each ring refills dash. Return to ring 1 to retry.';
+  }
   if (state.level.number > 1)
     return state.level.number % 4 === 0
       ? 'A calmer stretch. Explore the shelves, or follow the seabed pearls.'
       : state.level.biome === 'kelp'
         ? 'Ride the kelp currents upward. Hold sink for the easy pearl route.'
         : 'Explore the upper shelves for extra pearls. The seabed leads to the shell.';
-  if (state.ringTrial.kind === 'racing')
-    return `Ring ${state.ringTrial.nextRing + 1}/3 · ${state.ringTrial.remaining.toFixed(1)}s · Dash refilled!`;
   if (state.player.x < 850)
     return 'Follow the pearls. Take the high route for a challenge!';
   if (state.player.x < 1640) {

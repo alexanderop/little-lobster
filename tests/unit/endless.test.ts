@@ -15,7 +15,7 @@ afterEach(() => vi.unstubAllGlobals());
 test('the seabed route completes 1200 generated levels with real movement and hazards', () => {
   const input = { ...idleInput(), right: true, down: true };
   for (let seed = 0; seed < 100; seed++) {
-    for (let number = 2; number < 14; number++) {
+    for (let number = 3; number < 15; number++) {
       const state = createGame(generateLevel(number, seed));
       for (let frame = 0; frame < 900 && state.status === 'playing'; frame++)
         advance(state, input, 1 / 60, () => 1);
@@ -34,8 +34,8 @@ test('the seabed route completes 1200 generated levels with real movement and ha
 test('levels repeat from their seed, vary between seeds, and never repeat an adjacent biome', () => {
   const layouts = new Set<string>();
   for (let seed = 0; seed < 100; seed++) {
-    const level = generateLevel(2, seed);
-    expect(level).toEqual(generateLevel(2, seed));
+    const level = generateLevel(3, seed);
+    expect(level).toEqual(generateLevel(3, seed));
     expect(new Set(level.sections).size).toBe(5);
     layouts.add(JSON.stringify(level.platforms));
   }

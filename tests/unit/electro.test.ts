@@ -117,7 +117,7 @@ test('touch firing preserves keyboard firing until both release', () => {
   expect(input.read().fire).toBe(false);
 });
 
-test('damage removes power and Bigfin absorbs electro balls', () => {
+test('damage removes power and Bigfin survives one electro hit', () => {
   const state = createGame();
   const enemy = state.creatures.find((creature) => creature.kind === 'bigfin');
   if (!enemy) throw new Error('Missing Bigfin');
@@ -135,6 +135,7 @@ test('damage removes power and Bigfin absorbs electro balls', () => {
   });
   advance(state, idleInput(), 1 / 60);
   expect(enemy.active).toBe(true);
+  expect(enemy.boss?.health).toBe(7);
   expect(state.electroBalls).toHaveLength(0);
   expect(state.player.health).toBe(2);
   expect(state.player.electroTime).toBe(0);

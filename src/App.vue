@@ -288,13 +288,11 @@ function reload() {
     </div>
     <div class="chapter-strip">
       <div
-        v-for="(name, biome) in biomeNames"
+        v-for="(name, biome, index) in biomeNames"
         :key="name"
         :class="{ 'current-chapter': snapshot.biome === biome }"
       >
-        <span>{{
-          biome === 'reef' ? '01' : biome === 'kelp' ? '02' : '03'
-        }}</span
+        <span>{{ String(index + 1).padStart(2, '0') }}</span
         >{{ name }}<span class="chapter-line" />
       </div>
     </div>

@@ -629,10 +629,12 @@ kbd {
 }
 .chapter-strip {
   display: flex;
+  flex-wrap: wrap;
   gap: 28px;
   margin: -8px 0 30px;
 }
 .chapter-strip > div {
+  min-width: 25%;
   display: flex;
   align-items: center;
   gap: 10px;
