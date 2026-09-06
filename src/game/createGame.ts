@@ -31,7 +31,7 @@ export function createOceanGame(
   });
   let destroyed = false;
   const observer = new ResizeObserver(() => {
-    if (!destroyed && game.isBooted) game.scale.resize(width(), 720);
+    if (!destroyed && game.isBooted) game.scale.setGameSize(width(), 720);
   });
   observer.observe(parent);
 

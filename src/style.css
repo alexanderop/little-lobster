@@ -981,3 +981,111 @@ button:disabled {
     display: none;
   }
 }
+
+@media (pointer: coarse) {
+  .ocean-app.has-started {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    max-width: none;
+    padding: max(8px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+    overflow: hidden;
+  }
+  .has-started .masthead {
+    flex-shrink: 0;
+    margin-bottom: 8px;
+  }
+  .has-started .game-frame.is-playing {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    aspect-ratio: auto;
+  }
+  .has-started .below-game,
+  .has-started .chapter-strip,
+  .has-started .game-footer {
+    display: none;
+  }
+  .touch-controls {
+    top: 58%;
+    bottom: auto;
+    left: 10px;
+    right: 10px;
+    transform: translateY(-50%);
+  }
+  .touch-controls > div {
+    display: grid;
+    grid-template-columns: repeat(2, 48px);
+    gap: 8px;
+  }
+  .touch-button {
+    width: 48px;
+    height: 52px;
+    background: #075080b3;
+  }
+  .touch-button > span {
+    font-size: 10px;
+  }
+  .touch-down {
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+  .touch-fire {
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+  .touch-swim {
+    background: #ffbd38e6;
+  }
+  .touch-button:active {
+    background: #f09971;
+    color: #092b36;
+  }
+  .has-started .state-overlay {
+    overflow-y: auto;
+    padding: 16px;
+  }
+}
+
+@media (pointer: coarse) and (max-height: 550px) and (orientation: landscape) {
+  .has-started .masthead {
+    display: none;
+  }
+  .has-started .game-hud {
+    top: 8px;
+    left: 10px;
+    right: 10px;
+    padding: 4px 10px;
+  }
+  .has-started .challenge-hud {
+    top: 62px;
+    font-size: 12px;
+  }
+  .has-started .game-notice {
+    top: 86px;
+  }
+  .has-started .state-icon,
+  .has-started .state-card .eyebrow {
+    display: none;
+  }
+  .has-started .state-card h2 {
+    font-size: 30px;
+    margin: 8px 0;
+  }
+  .has-started .state-card > p:not(.eyebrow) {
+    margin: 8px 0 14px;
+    font-size: 14px;
+  }
+  .ocean-app:fullscreen.has-started .masthead {
+    display: flex;
+  }
+}
+
+@media (pointer: coarse) {
+  .ocean-app:fullscreen.has-started {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+      env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+}

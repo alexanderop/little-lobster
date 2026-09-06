@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('fullscreen contains the game and controls, and restores the page on exit', async ({
   page,
+  isMobile,
 }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Enter fullscreen' }).click();
@@ -37,7 +38,8 @@ test('fullscreen contains the game and controls, and restores the page on exit',
   await expect(
     page.getByRole('button', { name: 'Enter fullscreen' }),
   ).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.locator('.game-footer')).toBeVisible();
+  if (isMobile) await expect(page.locator('.game-footer')).toBeHidden();
+  else await expect(page.locator('.game-footer')).toBeVisible();
   await expect(page.locator('canvas')).toHaveCount(1);
   await page.getByRole('button', { name: 'Enter fullscreen' }).click();
   await expect(

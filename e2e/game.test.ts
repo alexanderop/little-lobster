@@ -189,3 +189,61 @@ test('saved journey plays through kelp, advances to crystal caves and resumes af
     page.getByText('Level 1 · Sunlit Reef', { exact: true }),
   ).toBeVisible();
 });
+
+test('touch controls and game fit small phones in both orientations', async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(!isMobile, 'Touch layout');
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Let’s play' }).click();
+  await expect(page.getByRole('button', { name: 'Pause game' })).toBeEnabled();
+
+  for (const viewport of [
+    { width: 320, height: 568 },
+    { width: 390, height: 664 },
+    { width: 844, height: 390 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect(async () => {
+      expect(
+        await page.evaluate(() => ({
+          width: document.documentElement.scrollWidth,
+          height: document.documentElement.scrollHeight,
+        })),
+      ).toEqual(viewport);
+      const host = await page.locator('.phaser-host').boundingBox();
+      const canvas = await page.locator('canvas').boundingBox();
+      if (!host || !canvas) throw new Error('Game canvas is missing');
+      expect(Math.abs(canvas.width - host.width)).toBeLessThan(2);
+      expect(Math.abs(canvas.height - host.height)).toBeLessThan(2);
+      for (const name of ['Left', 'Right', 'Sink', 'Electro', 'Dash', 'Jump']) {
+        const button = page.getByRole('button', { name, exact: true });
+        await expect(button).toBeInViewport({ ratio: 1 });
+        const box = await button.boundingBox();
+        if (!box) throw new Error(`Missing ${name} control`);
+        expect(box.width).toBeGreaterThanOrEqual(44);
+        expect(box.height).toBeGreaterThanOrEqual(44);
+        expect(
+          box.x + box.width <= viewport.width / 2 - 20 ||
+            box.x >= viewport.width / 2 + 20,
+        ).toBe(true);
+      }
+      await expect(
+        page.getByRole('button', { name: 'Pause game' }),
+      ).toBeInViewport({ ratio: 1 });
+    }).toPass();
+    await page.screenshot({
+      path: `test-results/touch-layout-${viewport.width}.png`,
+    });
+  }
+  await page.getByRole('button', { name: 'Pause game' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Keep playing' }),
+  ).toBeInViewport({ ratio: 1 });
+  await page.getByRole('button', { name: 'Keep playing' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Jump', exact: true }),
+  ).toBeInViewport({ ratio: 1 });
+});

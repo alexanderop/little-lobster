@@ -154,7 +154,7 @@ function reload() {
 </script>
 
 <template>
-  <main ref="app" class="ocean-app">
+  <main ref="app" class="ocean-app" :class="{ 'has-started': started }">
     <header class="masthead">
       <a class="wordmark" href="/" aria-label="Little Lobster home"
         ><Shell :size="28" /><span
