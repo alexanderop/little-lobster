@@ -1,13 +1,16 @@
 {
-  "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "singleQuote": true,
-  "printWidth": 80,
-  "sortPackageJson": false,
   "ignorePatterns": [
-    "package-lock.json",
+    "art/**",
+    "public/**",
+    "scripts/**",
     "pnpm-lock.yaml",
-    "yarn.lock",
-    "bun.lock",
-    "bun.lockb"
-  ]
+    ".openai/**",
+    "ART.md",
+    "dist/**",
+    "test-results/**",
+    "playwright-report/**"
+  ],
+  "printWidth": 80,
+  "sortPackageJson": false
 }

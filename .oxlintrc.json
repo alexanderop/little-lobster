@@ -1,15 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "eslint",
-    "typescript",
-    "unicorn",
-    "oxc",
-    "react",
-    "import",
-    "jsx-a11y",
-    "nextjs"
-  ],
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "vue"],
   "categories": {
     "correctness": "error"
   },
@@ -20,16 +11,13 @@
   },
   "options": {
     "typeAware": true,
-    "typeCheck": true
+    "typeCheck": false
   },
   "ignorePatterns": [
-    ".next/**",
-    ".vinext/**",
-    "out/**",
-    "build/**",
     "dist/**",
     "coverage/**",
-    "next-env.d.ts"
+    "test-results/**",
+    "playwright-report/**"
   ],
   "rules": {
     "no-array-constructor": "error",
@@ -38,12 +26,6 @@
     "prefer-rest-params": "error",
     "prefer-spread": "error",
     "import/no-anonymous-default-export": "warn",
-    "react/display-name": "error",
-    "react/jsx-no-comment-textnodes": "error",
-    "react/no-unescaped-entities": "error",
-    "react/react-compiler": "error",
-    "react/require-render-return": "error",
-    "react/rules-of-hooks": "error",
     "typescript/ban-ts-comment": "error",
     "typescript/no-deprecated": "error",
     "typescript/no-empty-object-type": "error",
@@ -51,6 +33,8 @@
     "typescript/no-namespace": "error",
     "typescript/no-require-imports": "error",
     "typescript/no-unnecessary-type-constraint": "error",
-    "typescript/no-unsafe-function-type": "error"
+    "typescript/no-unsafe-function-type": "error",
+    "typescript/no-floating-promises": "error",
+    "no-debugger": "error"
   }
 }

@@ -38,3 +38,8 @@ next-env.d.ts
 /work/
 
 *.tsbuildinfo
+
+# browser verification
+/test-results/
+/playwright-report/
+/tests/**/__screenshots__/
