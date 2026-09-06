@@ -14,7 +14,7 @@ const keyMap: Readonly<Record<string, keyof Input>> = {
   ShiftLeft: 'dash',
   ShiftRight: 'dash',
   KeyX: 'dash',
-  KeyZ: 'fire',
+  KeyF: 'fire',
 };
 
 export class GameInput {

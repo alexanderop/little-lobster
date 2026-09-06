@@ -61,7 +61,7 @@ test('catching a drop enables keyboard shots, limits firing rate, and defeats a 
   expect(state.electroPickups).toHaveLength(0);
   expect(state.player.electroTime).toBeGreaterThan(19);
   const controls = new GameInput();
-  controls.key('KeyZ', true);
+  controls.key('KeyF', true);
   advance(state, controls.read(), 1 / 60);
   expect(state.electroBalls).toHaveLength(1);
   advance(state, controls.read(), 1 / 60);
@@ -110,10 +110,10 @@ test('pause freezes power and shots; expiry and retry remove power', () => {
 test('touch firing preserves keyboard firing until both release', () => {
   const input = new GameInput();
   input.pointer(1, 'fire');
-  input.key('KeyZ', true);
+  input.key('KeyF', true);
   input.pointer(1, null);
   expect(input.read().fire).toBe(true);
-  input.key('KeyZ', false);
+  input.key('KeyF', false);
   expect(input.read().fire).toBe(false);
 });
 

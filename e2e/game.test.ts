@@ -129,14 +129,14 @@ test('the first pearl guarantees electro power and enables the firing control', 
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
   } else {
-    await page.keyboard.down('KeyZ');
+    await page.keyboard.down('KeyF');
   }
   await page.waitForTimeout(180);
   await page.screenshot({
     path: `test-results/electro-${isMobile ? 'mobile' : 'desktop'}.png`,
   });
   await page.mouse.up();
-  await page.keyboard.up('KeyZ');
+  await page.keyboard.up('KeyF');
   await page.getByRole('button', { name: 'Pause game' }).click();
   await page.getByRole('button', { name: 'Start over' }).click();
   await expect(page.getByText(/^Electro \d+s$/)).toHaveCount(0);

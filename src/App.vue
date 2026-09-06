@@ -61,7 +61,7 @@ const messages: Record<GameEvent['kind'], string> = {
   win: 'You brought the pearls home.',
   hurt: 'Stomp smaller enemies from above, or claw dash through.',
   'electro-spawn': 'An electric pearl! Catch the glowing orb.',
-  'electro-pickup': 'Electro power! Hold Z or Electro to shoot for 20 seconds.',
+  'electro-pickup': 'Electro power! Hold F or Electro to shoot for 20 seconds.',
   'electro-shot': '',
   'electro-hit': '',
   pearl: '',
@@ -235,7 +235,7 @@ function reload() {
         <span><kbd>←</kbd><kbd>→</kbd>Move</span
         ><span><kbd>SPACE</kbd>Jump / swim</span
         ><span><kbd>SHIFT</kbd>Claw dash</span
-        ><span><kbd>Z</kbd>Electro ball</span><span><kbd>ESC</kbd>Pause</span>
+        ><span><kbd>F</kbd>Electro ball</span><span><kbd>ESC</kbd>Pause</span>
       </div>
       <span class="gentle-note">Bump blocks. Bounce on baddies.</span>
     </div>
