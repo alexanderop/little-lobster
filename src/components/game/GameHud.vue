@@ -53,6 +53,14 @@ defineEmits<{ pause: [boolean] }>();
       </button>
     </div>
   </div>
+  <div v-if="ready && snapshot.challenge" class="challenge-hud">
+    <span>{{ snapshot.challenge }}</span>
+    <span
+      class="treasure-count"
+      :aria-label="`${snapshot.treasures} of 2 golden pearls`"
+      >✦ {{ snapshot.treasures }}/2</span
+    >
+  </div>
   <div class="game-route">
     <span><Waves :size="14" />{{ regionNames[snapshot.region] }}</span>
     <div

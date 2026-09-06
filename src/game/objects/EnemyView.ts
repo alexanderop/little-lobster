@@ -48,6 +48,7 @@ export class EnemyView {
   }
 
   render(creature: Creature, elapsed: number, cameraX: number) {
+    if (creature.active) this.defeatedAt = null;
     if (!creature.active && this.defeatedAt === null) this.defeatedAt = elapsed;
     const defeat =
       this.defeatedAt === null

@@ -899,3 +899,35 @@ button:disabled {
     font-size: 10px;
   }
 }
+
+.challenge-hud {
+  position: absolute;
+  z-index: 4;
+  top: 91px;
+  left: 24px;
+  right: 24px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #fff1bc;
+  font-size: 14px;
+  font-weight: 700;
+  text-shadow: 0 2px 3px #032745;
+  pointer-events: none;
+}
+.treasure-count {
+  white-space: nowrap;
+}
+.game-notice {
+  top: 137px;
+}
+@media (max-width: 600px) {
+  .challenge-hud {
+    top: 78px;
+    left: 18px;
+    right: 18px;
+  }
+  .game-notice {
+    top: 137px;
+  }
+}

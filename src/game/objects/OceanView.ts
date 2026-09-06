@@ -3,7 +3,13 @@ import { LobsterView } from './LobsterView';
 import { EnemyView } from './EnemyView';
 import { InkCloudView } from './InkCloudView';
 import { ReefScenery } from './ReefScenery';
-import { WORLD, pearlBlocks, region } from '../model/level';
+import {
+  WORLD,
+  pearlBlocks,
+  region,
+  reefTrial,
+  reefTreasures,
+} from '../model/level';
 import { pearlCount } from '../model/simulation';
 import type { GameState, GameEvent } from '../model/simulation';
 type Particle = {
@@ -24,6 +30,9 @@ export class OceanView {
   private ink: Phaser.GameObjects.Rectangle;
   private paint: Phaser.GameObjects.Graphics;
   private blockLabels: Phaser.GameObjects.Text[];
+  private ringLabels: Phaser.GameObjects.Text[];
+  private treasures: Phaser.GameObjects.Image[];
+  private treasureLabels: Phaser.GameObjects.Text[];
   private cameraX = 0;
   private particles: Particle[] = [];
   private enemies = new Map<number, EnemyView>();
@@ -48,6 +57,40 @@ export class OceanView {
       scene.add
         .image(pearl.x, pearl.y, 'reef-props', 'pearl')
         .setDisplaySize(25, 25),
+    );
+    this.ringLabels = reefTrial.rings.map((ring, index) =>
+      scene.add
+        .text(ring.x, ring.y, String(index + 1), {
+          fontFamily: 'Arial',
+          fontSize: '22px',
+          fontStyle: 'bold',
+          color: '#fff2b5',
+          stroke: '#123b4e',
+          strokeThickness: 4,
+        })
+        .setOrigin(0.5)
+        .setName(`trial-ring-${index}`)
+        .setDepth(2),
+    );
+    this.treasures = state.treasures.map((treasure) =>
+      scene.add
+        .image(treasure.x, treasure.y, 'reef-props', 'pearl')
+        .setDisplaySize(42, 42)
+        .setTint(0xffd35d)
+        .setName('golden-pearl')
+        .setDepth(2),
+    );
+    this.treasureLabels = reefTreasures.map((treasure) =>
+      scene.add
+        .text(treasure.x, treasure.y + 44, treasure.name, {
+          fontFamily: 'Arial',
+          fontSize: '16px',
+          color: '#ffe8a0',
+          stroke: '#123b4e',
+          strokeThickness: 4,
+        })
+        .setOrigin(0.5)
+        .setDepth(2),
     );
     this.blocks = state.blocks.map((block) =>
       scene.add
@@ -83,8 +126,14 @@ export class OceanView {
       { x: 300, y: 200, t: 'WORLD 1-1  ·  PEARL RESCUE →' },
       { x: 440, y: 675, t: 'SPACE: jump / swim   SHIFT: dash' },
       { x: 780, y: 290, t: 'Bump golden blocks from below!' },
-      { x: 1200, y: 180, t: 'Bounce on smaller enemies ↓' },
-      { x: 1710, y: 195, t: 'Catch the bubble current ↑' },
+      { x: 1210, y: 200, t: 'BOUNCE TRAIL · 3 stomps without landing' },
+      {
+        x: 1050,
+        y: 655,
+        t: 'Easy pearl path →     ↶ Return here to retry bounces',
+      },
+      { x: 1920, y: 140, t: 'CURRENT RUN · 3 rings in 4 seconds →' },
+      { x: 1710, y: 655, t: 'Ride up ↑  ·  Hold sink to stay low' },
       { x: 2570, y: 590, t: '✦  CHECKPOINT' },
       { x: 3370, y: 130, t: 'A friendly face. Swim over to say hello.' },
       { x: 4910, y: 175, t: 'Bigfin ahead. Slip underneath!' },
@@ -159,6 +208,52 @@ export class OceanView {
         );
       }
     }
+    reefTrial.rings.forEach((ring, index) => {
+      const passed =
+        state.ringTrial.kind === 'complete' ||
+        (state.ringTrial.kind === 'racing' && index < state.ringTrial.nextRing);
+      const next =
+        state.ringTrial.kind === 'ready'
+          ? index === 0
+          : state.ringTrial.kind === 'racing' &&
+            index === state.ringTrial.nextRing;
+      const color = passed ? 0x9ef7cf : 0xffda70;
+      g.lineStyle(next ? 5 : 2, color, passed ? 0.25 : next ? 0.95 : 0.45);
+      g.strokeCircle(x(ring.x), ring.y, 46);
+      if (next) {
+        g.lineStyle(2, color, 0.2 + Math.sin(t * 4) * 0.1);
+        g.strokeCircle(x(ring.x), ring.y, 55);
+      }
+      this.ringLabels[index]
+        ?.setPosition(x(ring.x), ring.y)
+        .setText(passed ? '✓' : String(index + 1))
+        .setAlpha(passed ? 0.4 : 1);
+    });
+    state.treasures.forEach((treasure, index) => {
+      this.treasures[index]
+        ?.setPosition(x(treasure.x), treasure.y + Math.sin(t * 3) * 5)
+        .setVisible(!treasure.collected)
+        .setAlpha(treasure.unlocked ? 1 : 0.3);
+      this.treasureLabels[index]
+        ?.setPosition(x(treasure.x), treasure.y + 42)
+        .setText(
+          treasure.collected
+            ? '✓ +3 pearls'
+            : treasure.unlocked
+              ? '+3 · Catch it!'
+              : index === 0
+                ? '3 stomps to unlock'
+                : 'Finish the rings',
+        );
+      if (!treasure.collected) {
+        g.lineStyle(2, 0xffd35d, treasure.unlocked ? 0.8 : 0.3);
+        g.strokeCircle(x(treasure.x), treasure.y, 33);
+        if (treasure.unlocked) {
+          g.fillStyle(0xffd35d, 0.13);
+          g.fillCircle(x(treasure.x), treasure.y, 48);
+        }
+      }
+    });
     state.blocks.forEach((block, index) => {
       const bx = x(block.x),
         by = block.y - Math.sin((block.bump / 0.22) * Math.PI) * 12;
@@ -264,19 +359,26 @@ export class OceanView {
     }
   }
   burst(event: GameEvent) {
-    for (let i = 0; i < 10; i++) {
-      const angle = (i * Math.PI) / 5;
+    const count =
+      event.kind === 'treasure' || event.kind === 'treasure-unlocked' ? 24 : 10;
+    for (let i = 0; i < count; i++) {
+      const angle = (i * Math.PI * 2) / count;
       this.particles.push({
         x: event.x,
         y: event.y,
         vx: Math.cos(angle) * 90,
         vy: Math.sin(angle) * 90 - 20,
         life: 0.7,
-        color: event.kind.startsWith('electro-')
-          ? 0x78efff
-          : event.kind === 'hurt'
-            ? 0xf49c89
-            : 0xe4f7c7,
+        color:
+          event.kind === 'treasure' ||
+          event.kind === 'treasure-unlocked' ||
+          event.kind === 'ring'
+            ? 0xffd35d
+            : event.kind.startsWith('electro-')
+              ? 0x78efff
+              : event.kind === 'hurt'
+                ? 0xf49c89
+                : 0xe4f7c7,
       });
     }
   }

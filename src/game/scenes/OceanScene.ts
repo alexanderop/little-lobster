@@ -6,6 +6,7 @@ import {
   idleInput,
   pearlCount,
   setPaused,
+  adventureHint,
 } from '../model/simulation';
 import { WORLD, region } from '../model/level';
 import type { Input } from '../model/simulation';
@@ -104,6 +105,9 @@ export class OceanScene extends Phaser.Scene {
       checkpoint: this.state.checkpoint,
       friend: this.state.friend,
       seconds: Math.floor(this.state.elapsed),
+      treasures: this.state.treasures.filter((treasure) => treasure.collected)
+        .length,
+      challenge: adventureHint(this.state),
     };
   }
 

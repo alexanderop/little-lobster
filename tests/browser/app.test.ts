@@ -4,7 +4,7 @@ import { render, cleanup } from 'vitest-browser-vue';
 import App from '../../src/App.vue';
 import { readBest, saveBest } from '../../src/game/best-score';
 import { OceanScene } from '../../src/game/scenes/OceanScene';
-import { idleInput } from '../../src/game/model/simulation';
+import { idleInput, createGame } from '../../src/game/model/simulation';
 import { WORLD } from '../../src/game/model/level';
 import '../../src/style.css';
 
@@ -25,6 +25,10 @@ test('pause shortcuts preserve game-over menu focus and keyboard retry', async (
   const scene = created.mock.contexts[0];
   if (!(scene instanceof OceanScene))
     throw new Error('Ocean scene did not start');
+  const hazard = createGame().creatures.find(
+    (enemy) => enemy.kind === 'costume-cat',
+  );
+  if (!hazard) throw new Error('Starting hazard missing');
   for (
     let frame = 0;
     frame < 3600 && scene.snapshot().status === 'playing';
@@ -33,8 +37,8 @@ test('pause shortcuts preserve game-over menu focus and keyboard retry', async (
     const x = scene.snapshot().progress * WORLD.exitX;
     scene.setInput({
       ...idleInput(),
-      right: x < 1150,
-      left: x > 1160,
+      right: x < hazard.homeX - 5,
+      left: x > hazard.homeX + 5,
       down: true,
     });
     scene.update((frame * 1000) / 60, 1000 / 60);
@@ -57,6 +61,14 @@ test('Vue starts the real game, focuses controls, pauses, resumes and restarts',
   await expect
     .element(page.getByRole('button', { name: 'Pause game' }))
     .toBeEnabled();
+  await expect
+    .element(
+      page.getByText('Follow the pearls. Take the high route for a challenge!'),
+    )
+    .toBeVisible();
+  await expect
+    .element(page.getByLabelText('0 of 2 golden pearls'))
+    .toBeVisible();
   await expect
     .poll(() => document.activeElement?.className)
     .toBe('phaser-host');

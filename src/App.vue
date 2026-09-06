@@ -42,6 +42,8 @@ const snapshot = shallowRef<Snapshot>({
   checkpoint: false,
   friend: false,
   seconds: 0,
+  treasures: 0,
+  challenge: '',
 });
 const game = useTemplateRef<InstanceType<typeof PhaserGame>>('game');
 const audio = new OceanAudio();
@@ -50,6 +52,10 @@ const overlay = computed(
   () => started.value && ready.value && snapshot.value.status !== 'playing',
 );
 const messages: Record<GameEvent['kind'], string> = {
+  ring: '',
+  'trial-failed': 'Time ran out. Return to ring 1 to try again!',
+  'treasure-unlocked': 'A golden pearl unlocked! Swim over and catch it.',
+  treasure: '+3 pearls! Golden treasure found.',
   checkpoint: 'Checkpoint reached. Hearts restored!',
   friend: 'Narwhal says hello! Hearts restored + a little protection.',
   win: 'You brought the pearls home.',

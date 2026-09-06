@@ -11,6 +11,8 @@ export type Snapshot = Readonly<{
   checkpoint: boolean;
   friend: boolean;
   seconds: number;
+  treasures: number;
+  challenge: string;
 }>;
 
 export type GameCallbacks = {

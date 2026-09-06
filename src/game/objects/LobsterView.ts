@@ -38,7 +38,12 @@ export class LobsterView {
 
   react(event: GameEvent) {
     if (event.kind === 'hurt') this.hurtTime = 0.32;
-    if (event.kind === 'pearl' || event.kind === 'block') this.pearlTime = 0.28;
+    if (
+      event.kind === 'pearl' ||
+      event.kind === 'block' ||
+      event.kind === 'treasure'
+    )
+      this.pearlTime = 0.28;
   }
 
   render(state: GameState, cameraX: number) {

@@ -64,6 +64,13 @@ function trapFocus(event: KeyboardEvent) {
           snapshot.friend ? ' And a narwhal friend made along the way.' : ''
         }}
       </p>
+      <p v-if="snapshot.status === 'won'" class="treasure-result">
+        {{ snapshot.treasures }}/2 golden pearls found.{{
+          snapshot.treasures < 2
+            ? ' Try the high reef route for the others!'
+            : ' Both reef challenges mastered!'
+        }}
+      </p>
       <p v-else-if="snapshot.status === 'lost'">
         Your pearls are safe. Try again from
         {{ snapshot.checkpoint ? 'the checkpoint' : 'the reef' }}.

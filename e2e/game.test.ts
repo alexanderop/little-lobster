@@ -93,7 +93,7 @@ test('reload retains best score but starts a fresh run', async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => localStorage.setItem('little-lobster-best', '24'));
   await page.reload();
-  await expect(page.getByText('Best 24/56')).toBeAttached();
+  await expect(page.getByText('Best 24/62')).toBeAttached();
   await page.getByRole('button', { name: 'Let’s play' }).click();
   await expect(page.getByRole('button', { name: 'Pause game' })).toBeEnabled();
   await expect(
