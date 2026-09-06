@@ -99,8 +99,22 @@ test('a player can swim the complete pearl trail using only controls', () => {
     )
       targetIndex++;
     const target = s.pearls[targetIndex] ?? { x: WORLD.exitX, y: WORLD.exitY };
-    const dx = target.x - s.player.x,
-      dy = target.y - s.player.y;
+    const obstacle = s.blocks.find(
+      (block) =>
+        block.x > s.player.x - 44 &&
+        block.x < target.x &&
+        block.x - s.player.x < 90 &&
+        s.player.y + 32 > block.y - 24 &&
+        s.player.y - 30 < block.y + 24,
+    );
+    const standingBlock = s.blocks.find(
+      (block) =>
+        Math.abs(s.player.x - block.x) < 44 &&
+        s.player.y <= block.y - 56 &&
+        target.y > block.y - 56,
+    );
+    const dx = (standingBlock ? standingBlock.x + 65 : target.x) - s.player.x,
+      dy = (obstacle ? obstacle.y - 70 : target.y) - s.player.y;
     advance(
       s,
       {
@@ -109,6 +123,7 @@ test('a player can swim the complete pearl trail using only controls', () => {
         swim: dy < -8,
         down: dy > 12,
         dash: false,
+        fire: false,
       },
       1 / 60,
     );

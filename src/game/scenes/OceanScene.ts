@@ -99,6 +99,7 @@ export class OceanScene extends Phaser.Scene {
       health: this.state.player.health,
       progress: this.state.player.x / WORLD.exitX,
       region: region(this.state.player.x),
+      electroSeconds: Math.ceil(this.state.player.electroTime),
       dashReady: this.state.player.dashCooldown === 0,
       checkpoint: this.state.checkpoint,
       friend: this.state.friend,

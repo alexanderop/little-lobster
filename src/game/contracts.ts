@@ -7,6 +7,7 @@ export type Snapshot = Readonly<{
   progress: number;
   region: number;
   dashReady: boolean;
+  electroSeconds: number;
   checkpoint: boolean;
   friend: boolean;
   seconds: number;

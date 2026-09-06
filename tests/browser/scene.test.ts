@@ -3,7 +3,8 @@ import * as Phaser from 'phaser';
 import { OceanScene } from '../../src/game/scenes/OceanScene';
 import { Preloader } from '../../src/game/scenes/Preloader';
 import { createOceanGame } from '../../src/game/createGame';
-import { idleInput } from '../../src/game/model/simulation';
+import { EnemyView } from '../../src/game/objects/EnemyView';
+import { createGame, idleInput } from '../../src/game/model/simulation';
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -144,4 +145,61 @@ test('restart discards fractional simulation time from the previous run', async 
   expect(scene.snapshot()).toEqual(before);
   scene.update(12, 12);
   expect(scene.snapshot().progress).toBeGreaterThan(before.progress);
+});
+
+test('all enemy species animate their body parts and reset after defeat', async () => {
+  const { scene } = await boot();
+  for (const creature of createGame().creatures) {
+    const view = new EnemyView(scene, creature);
+    const pose = () =>
+      view.container.list.map((part) => {
+        if (!(part instanceof Phaser.GameObjects.Image))
+          throw new Error('Enemy part missing');
+        return { x: part.x, y: part.y };
+      });
+    view.render(creature, 0, 0);
+    const initial = pose();
+    view.render(creature, 0.2, 0);
+    expect(pose()).not.toEqual(initial);
+    const animated = pose();
+    view.render(creature, 0.2, 0);
+    expect(pose()).toEqual(animated);
+    const defeated = { ...creature, active: false };
+    view.render(defeated, 0.2, 0);
+    view.render(defeated, 0.36, 0);
+    expect(view.container.alpha).toBeCloseTo(0.5);
+    expect(view.container.visible).toBe(true);
+    view.render(defeated, 0.6, 0);
+    expect(view.container.visible).toBe(false);
+    view.reset(creature);
+    view.render(creature, 0, 0);
+    expect(view.container.alpha).toBe(1);
+    expect(view.container.visible).toBe(true);
+    expect(pose()).toEqual(initial);
+    view.container.destroy();
+  }
+});
+
+test('electric pickup and projectile use the generated texture and reset without leftover sprites', async () => {
+  const { scene } = await boot();
+  const { OceanView } = await import('../../src/game/objects/OceanView');
+  const { advance } = await import('../../src/game/model/simulation');
+  const state = createGame();
+  const view = new OceanView(scene, state);
+  state.pearls = [{ x: state.player.x, y: state.player.y, collected: false }];
+  advance(state, idleInput(), 1 / 60, () => 0);
+  view.render(state, 16);
+  const pickup = scene.children.getByName('electro-orb');
+  expect(pickup).toBeInstanceOf(Phaser.GameObjects.Image);
+  if (!(pickup instanceof Phaser.GameObjects.Image))
+    throw new Error('Missing pickup sprite');
+  expect(pickup.texture.key).toBe('electro-orb');
+  expect(pickup.displayWidth).toBeCloseTo(58);
+  for (let i = 0; i < 30; i++) advance(state, idleInput(), 1 / 60, () => 1);
+  advance(state, { ...idleInput(), fire: true }, 1 / 60);
+  view.render(state, 16);
+  expect(pickup.displayWidth).toBeCloseTo(38);
+  expect(pickup.x).toBeGreaterThan(state.player.x);
+  view.reset(createGame());
+  expect(scene.children.getByName('electro-orb')).toBeNull();
 });

@@ -38,6 +38,7 @@ const snapshot = shallowRef<Snapshot>({
   progress: 0,
   region: 0,
   dashReady: true,
+  electroSeconds: 0,
   checkpoint: false,
   friend: false,
   seconds: 0,
@@ -53,6 +54,10 @@ const messages: Record<GameEvent['kind'], string> = {
   friend: 'Narwhal says hello! Hearts restored + a little protection.',
   win: 'You brought the pearls home.',
   hurt: 'Stomp smaller enemies from above, or claw dash through.',
+  'electro-spawn': 'An electric pearl! Catch the glowing orb.',
+  'electro-pickup': 'Electro power! Hold Z or Electro to shoot for 20 seconds.',
+  'electro-shot': '',
+  'electro-hit': '',
   pearl: '',
   jump: '',
   block: '+1 pearl! Bump the golden blocks from below.',
@@ -212,14 +217,19 @@ function reload() {
           @restart="restart"
           @retry="retry"
         />
-        <TouchControls v-if="ready && !overlay && !error" @input="pointer" />
+        <TouchControls
+          v-if="ready && !overlay && !error"
+          :powered="snapshot.electroSeconds > 0"
+          @input="pointer"
+        />
       </template>
     </section>
     <div class="below-game">
       <div class="controls-legend">
         <span><kbd>←</kbd><kbd>→</kbd>Move</span
         ><span><kbd>SPACE</kbd>Jump / swim</span
-        ><span><kbd>SHIFT</kbd>Claw dash</span><span><kbd>ESC</kbd>Pause</span>
+        ><span><kbd>SHIFT</kbd>Claw dash</span
+        ><span><kbd>Z</kbd>Electro ball</span><span><kbd>ESC</kbd>Pause</span>
       </div>
       <span class="gentle-note">Bump blocks. Bounce on baddies.</span>
     </div>

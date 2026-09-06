@@ -1,6 +1,14 @@
 <script setup lang="ts">
-import { ArrowLeft, ArrowRight, ArrowDown, ArrowUp, Zap } from '@lucide/vue';
+import {
+  ArrowLeft,
+  ArrowRight,
+  ArrowDown,
+  ArrowUp,
+  Zap,
+  CircleDot,
+} from '@lucide/vue';
 import type { Input } from '../../game/model/simulation';
+defineProps<{ powered: boolean }>();
 const emit = defineEmits<{ input: [id: number, action: keyof Input | null] }>();
 const groups = [
   [
@@ -9,6 +17,7 @@ const groups = [
     { action: 'down', label: 'Sink', icon: ArrowDown },
   ],
   [
+    { action: 'fire', label: 'Electro', icon: CircleDot },
     { action: 'dash', label: 'Dash', icon: Zap },
     { action: 'swim', label: 'Jump', icon: ArrowUp },
   ],
@@ -30,6 +39,7 @@ function press(event: PointerEvent, action: keyof Input) {
         class="touch-button"
         :class="`touch-${control.action}`"
         :aria-label="control.label"
+        :disabled="control.action === 'fire' && !powered"
         @pointerdown="press($event, control.action)"
         @pointerup="$emit('input', $event.pointerId, null)"
         @pointercancel="$emit('input', $event.pointerId, null)"

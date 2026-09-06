@@ -1,0 +1,3 @@
+Generated with the built-in Codex image generation tool.
+
+Use case: stylized-concept. Asset type: transparent game sprite for a charming underwater platform game. Draw ONE centered electric pearl orb: luminous aqua cyan glass ball with a bright pale yellow lightning bolt inside and a few crisp blue electrical arcs hugging its circular silhouette. Soft hand-painted storybook game art, rounded chunky forms, dark teal outline, readable at 36 pixels. Symmetric compact silhouette, generous transparent padding on all sides. Actual transparent background, no scenery, no floor, no text, no watermark. Square canvas. This sprite will be used as both a floating collectible and a smaller electro-ball projectile.

@@ -26,6 +26,8 @@ function clearInput() {
   controller?.setInput(input.read());
 }
 function pause(paused: boolean) {
+  const status = controller?.snapshot().status;
+  if (status !== 'playing' && status !== 'paused') return;
   clearInput();
   controller?.pause(paused);
   if (!paused) focus();

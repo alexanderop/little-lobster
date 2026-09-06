@@ -861,3 +861,41 @@ button:disabled {
   cursor: wait;
   opacity: 0.6;
 }
+
+.electro-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #9cffff;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.touch-fire {
+  color: #a5ffff;
+  border-color: #65e2ee;
+}
+@media (max-width: 600px) {
+  .touch-controls > div {
+    gap: 5px;
+  }
+  .touch-fire {
+    width: 46px;
+    height: 46px;
+  }
+  .hud-right {
+    gap: 6px;
+  }
+}
+
+.touch-fire:disabled {
+  opacity: 0.45;
+}
+@media (max-width: 600px) {
+  .touch-button {
+    width: 44px;
+    height: 48px;
+  }
+  .touch-button > span {
+    font-size: 10px;
+  }
+}

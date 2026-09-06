@@ -17,6 +17,10 @@ export class OceanAudio {
       oscillator = context.createOscillator(),
       gain = context.createGain();
     const notes = {
+      'electro-spawn': 980,
+      'electro-pickup': 1320,
+      'electro-shot': 580,
+      'electro-hit': 180,
       pearl: 880,
       jump: 330,
       block: 1175,

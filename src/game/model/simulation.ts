@@ -5,6 +5,7 @@ export type Input = {
   swim: boolean;
   down: boolean;
   dash: boolean;
+  fire: boolean;
 };
 export const idleInput = (): Input => ({
   left: false,
@@ -12,9 +13,10 @@ export const idleInput = (): Input => ({
   swim: false,
   down: false,
   dash: false,
+  fire: false,
 });
 export type Status = 'playing' | 'paused' | 'lost' | 'won';
-export type CreatureKind = 'catfish' | 'sepia' | 'bigfin';
+export type CreatureKind = 'catfish' | 'sepia' | 'bigfin' | 'costume-cat';
 export type Creature = {
   id: number;
   kind: CreatureKind;
@@ -37,7 +39,11 @@ export type GameEvent = {
     | 'win'
     | 'jump'
     | 'block'
-    | 'stomp';
+    | 'stomp'
+    | 'electro-spawn'
+    | 'electro-pickup'
+    | 'electro-shot'
+    | 'electro-hit';
   x: number;
   y: number;
 };
@@ -54,6 +60,8 @@ export type GameState = {
     vy: number;
     facing: 1 | -1;
     health: number;
+    electroTime: number;
+    fireCooldown: number;
     invincible: number;
     dashTime: number;
     dashCooldown: number;
@@ -63,6 +71,8 @@ export type GameState = {
     coyoteTime: number;
     jumpBuffer: number;
   };
+  electroPickups: { x: number; y: number; life: number }[];
+  electroBalls: { x: number; y: number; vx: number; life: number }[];
   checkpoint: boolean;
   friend: boolean;
   ink: number;
@@ -135,6 +145,16 @@ export function createGame(): GameState {
       radius: 72,
       active: true,
     },
+    {
+      id: 6,
+      kind: 'costume-cat',
+      x: 720,
+      y: 565,
+      homeX: 720,
+      homeY: 565,
+      radius: 42,
+      active: true,
+    },
   ];
   return {
     status: 'playing',
@@ -149,6 +169,8 @@ export function createGame(): GameState {
       vy: 0,
       facing: 1,
       health: 3,
+      electroTime: 0,
+      fireCooldown: 0,
       invincible: 0,
       dashTime: 0,
       dashCooldown: 0,
@@ -158,6 +180,8 @@ export function createGame(): GameState {
       coyoteTime: 0,
       jumpBuffer: 0,
     },
+    electroPickups: [],
+    electroBalls: [],
     checkpoint: false,
     friend: false,
     ink: 0,
@@ -179,6 +203,8 @@ export function continueGame(state: GameState) {
     vx: 0,
     vy: 0,
     health: 3,
+    electroTime: 0,
+    fireCooldown: 0,
     invincible: 2,
     dashTime: 0,
     dashCooldown: 0,
@@ -188,6 +214,8 @@ export function continueGame(state: GameState) {
     coyoteTime: 0,
     jumpBuffer: 0,
   });
+  state.electroPickups = [];
+  state.electroBalls = [];
   state.ink = 0;
   state.status = 'playing';
   state.events = [];
@@ -196,12 +224,24 @@ const distance = (a: { x: number; y: number }, b: { x: number; y: number }) =>
   Math.hypot(a.x - b.x, a.y - b.y);
 const clamp = (v: number, min: number, max: number) =>
   Math.max(min, Math.min(max, v));
-export function advance(state: GameState, input: Input, seconds: number) {
+export function advance(
+  state: GameState,
+  input: Input,
+  seconds: number,
+  random = Math.random,
+) {
   if (state.status !== 'playing') return;
   state.events = [];
   const dt = clamp(seconds, 0, 0.05),
     p = state.player;
   state.elapsed += dt;
+  p.electroTime = Math.max(0, p.electroTime - dt);
+  p.fireCooldown = Math.max(0, p.fireCooldown - dt);
+  const spawnElectro = (x: number, y: number, guaranteed = false) => {
+    if (!guaranteed && random() >= 0.16) return;
+    state.electroPickups.push({ x, y: y - 55, life: 10 });
+    state.events.push({ kind: 'electro-spawn', x, y: y - 55 });
+  };
   p.invincible = Math.max(0, p.invincible - dt);
   p.dashTime = Math.max(0, p.dashTime - dt);
   p.dashCooldown = Math.max(0, p.dashCooldown - dt);
@@ -242,8 +282,19 @@ export function advance(state: GameState, input: Input, seconds: number) {
     input.down ? 420 : 310,
   );
   if (p.dashTime > 0) p.vy *= Math.max(0, 1 - dt * 12);
+  const oldX = p.x;
   const oldY = p.y;
   p.x = clamp(p.x + p.vx * dt, 36, WORLD.width - 36);
+  for (const block of state.blocks) {
+    if (p.y + 32 <= block.y - 24 || p.y - 30 >= block.y + 24) continue;
+    if (oldX <= block.x - 44 && p.x > block.x - 44) {
+      p.x = block.x - 44;
+      p.vx = 0;
+    } else if (oldX >= block.x + 44 && p.x < block.x + 44) {
+      p.x = block.x + 44;
+      p.vx = 0;
+    }
+  }
   p.y = clamp(p.y + p.vy * dt, 90, WORLD.floor - 34);
   p.grounded = p.y === WORLD.floor - 34;
   if (p.y === 90 || p.grounded) p.vy = 0;
@@ -271,6 +322,7 @@ export function advance(state: GameState, input: Input, seconds: number) {
         block.used = true;
         block.bump = 0.22;
         state.events.push({ kind: 'block', x: block.x, y: block.y - 34 });
+        spawnElectro(block.x, block.y);
       }
     } else if (
       p.vy >= 0 &&
@@ -288,7 +340,44 @@ export function advance(state: GameState, input: Input, seconds: number) {
     if (!pearl.collected && distance(p, pearl) < 49) {
       pearl.collected = true;
       state.events.push({ kind: 'pearl', x: pearl.x, y: pearl.y });
+      spawnElectro(pearl.x, pearl.y, pearl === state.pearls[0]);
     }
+  for (const pickup of state.electroPickups) {
+    pickup.life -= dt;
+    pickup.y = Math.min(WORLD.floor - 28, pickup.y + dt * 38);
+    if (pickup.life > 0 && pickup.life < 9.65 && distance(p, pickup) < 52) {
+      pickup.life = 0;
+      p.electroTime = 20;
+      p.fireCooldown = 0;
+      state.events.push({ kind: 'electro-pickup', x: p.x, y: p.y });
+    }
+  }
+  state.electroPickups = state.electroPickups.filter(
+    (pickup) => pickup.life > 0,
+  );
+  if (input.fire && p.electroTime > 0 && p.fireCooldown === 0) {
+    p.fireCooldown = 0.3;
+    state.electroBalls.push({
+      x: p.x + p.facing * 40,
+      y: p.y,
+      vx: p.facing * 620,
+      life: 1.5,
+    });
+    state.events.push({ kind: 'electro-shot', x: p.x, y: p.y });
+  }
+  for (const ball of state.electroBalls) {
+    ball.x += ball.vx * dt;
+    ball.life -= dt;
+    if (
+      ball.x < 0 ||
+      ball.x > WORLD.width ||
+      state.blocks.some(
+        (block) =>
+          Math.abs(ball.x - block.x) < 34 && Math.abs(ball.y - block.y) < 34,
+      )
+    )
+      ball.life = 0;
+  }
   if (!state.checkpoint && p.x >= 2530) {
     state.checkpoint = true;
     p.health = 3;
@@ -316,6 +405,17 @@ export function advance(state: GameState, input: Input, seconds: number) {
       enemy.homeY +
       Math.sin(state.elapsed * 1.3 + enemy.id) *
         (enemy.kind === 'bigfin' ? 105 : 23);
+    const hit = state.electroBalls.find(
+      (ball) => ball.life > 0 && distance(ball, enemy) < enemy.radius + 14,
+    );
+    if (hit) {
+      hit.life = 0;
+      state.events.push({ kind: 'electro-hit', x: enemy.x, y: enemy.y });
+      if (enemy.kind !== 'bigfin') {
+        enemy.active = false;
+        continue;
+      }
+    }
     const d = distance(p, enemy);
     if (
       enemy.kind === 'sepia' &&
@@ -335,9 +435,11 @@ export function advance(state: GameState, input: Input, seconds: number) {
         state.events.push({ kind: 'defeat', x: enemy.x, y: enemy.y });
       } else if (p.invincible === 0 && p.dashTime === 0) {
         p.health--;
+        p.electroTime = 0;
         p.invincible = 1.8;
         p.vy = -200;
-        p.x = clamp(p.x - p.facing * 65, 36, WORLD.width - 36);
+        const knockback = Math.sign(p.x - enemy.x) || -p.facing;
+        p.x = clamp(p.x + knockback * 65, 36, WORLD.width - 36);
         state.events.push({ kind: 'hurt', x: p.x, y: p.y });
         if (p.health <= 0) {
           state.status = 'lost';
@@ -346,6 +448,7 @@ export function advance(state: GameState, input: Input, seconds: number) {
       }
     }
   }
+  state.electroBalls = state.electroBalls.filter((ball) => ball.life > 0);
   if (
     p.x > WORLD.exitX - 75 &&
     Math.abs(p.y - WORLD.exitY) < 110 &&

@@ -93,7 +93,7 @@ export class LobsterView {
             hurt * 0.3 +
             delight * 0.12),
       )
-      .setAlpha(p.invincible > 0 && Math.sin(t * 25) > 0 ? 0.45 : 1)
+      .setAlpha(p.invincible > 0 ? 0.8 : 1)
       .setTint(hurt > 0.6 ? 0xffb7a5 : 0xffffff);
   }
 }

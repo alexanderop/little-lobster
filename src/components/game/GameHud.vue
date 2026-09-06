@@ -28,6 +28,12 @@ defineEmits<{ pause: [boolean] }>();
       </div>
     </div>
     <div class="hud-right">
+      <span
+        v-if="snapshot.electroSeconds > 0"
+        class="electro-status"
+        role="status"
+        ><Zap :size="15" />Electro {{ snapshot.electroSeconds }}s</span
+      >
       <span class="dash-status" :class="{ charged: snapshot.dashReady }"
         ><Zap :size="15" />{{
           snapshot.dashReady ? 'Dash ready' : 'Recharging'

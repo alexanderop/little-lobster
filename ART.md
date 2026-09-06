@@ -25,3 +25,22 @@ Use case: illustration-story. Asset type: transparent PNG browser game sprite at
 ## Background prompt
 
 Use case: illustration-story. Asset type: wide underwater side scrolling browser game environment background, 1536x1024. Handpainted teal ocean fading into dark navy depths. Layered coral reefs only along the BOTTOM edge, coral pink and orange plants, sun rays from upper left, tiny distant fish. Huge open central water area for gameplay. Cozy handdrawn ink and gouache illustration style, textured painted water and soft light, restrained detail in central water. No foreground characters, no platforms, no UI, no text.
+
+## Painted reef props and distant water
+
+Generated with the built-in imagegen tool on 2026-09-06:
+
+- `art/reef-props-source.png`: original 1536 × 1024 prop sheet. The image generator painted a checkerboard into the RGB background, including after a transparency retry.
+- `public/assets/reef-distant.png`: 1536 × 1024 distant water and reef background.
+
+The props use the original lobster and reef as style references. The distant water uses the original reef as its reference. The original assets remain intact.
+
+`ReefScenery` renders alternating mirrored background tiles. Neighboring tiles share the same source edge, so repetition does not depend on the generator producing perfectly matching edges. The background moves at 16% of the world scroll speed. Platform artwork uses left, middle, and right sections, with its upper edge placed at the existing collision surface.
+
+Prop generation prompt: Create a production game prop atlas, one PNG with genuine transparent alpha background, 1536x1024 landscape. References only for cozy dark ink and gouache painted style, warm coral/sand against teal. Exactly four isolated assets in equal 2x2 cells with generous empty transparent margins, no overlap. TOP LEFT: one wide horizontal coral-rock platform, flat clear pale sandy top, rust coral rock underneath, side elevation, roughly 3:1 width to height, no plants above landing edge. TOP RIGHT: one round ivory iridescent pearl with delicate pink and mint shading, dark warm outline and tiny bright glint, centered. BOTTOM LEFT: cozy spiral seashell house, peach cream shell, small dark arched doorway warmly lit, tiny coral at base, complete silhouette. BOTTOM RIGHT: one rounded square golden coral reward block with painted bevel, pale inset face and a single white question mark. No scenery, no checkerboard, no floor, no labels, no other text, no character. Each entire object fully contained in its cell. These will be cropped into individual game textures.
+
+Transparency retry prompt: Background extraction edit. Preserve all four painted objects exactly, including their colors, outlines, positions, sizes. Remove the entire gray white checkerboard background and replace it with genuine alpha transparency, NOT a painted checkerboard. Output RGBA transparent PNG. All space outside the four objects must have alpha zero. No other changes.
+
+Background generation prompt: Create a new horizontal seamless repeating underwater background texture for a cozy painted side-scrolling game, landscape 1536x1024. Use reference for gouache watercolor texture and palette. Crucial: left and right edges must match perfectly in color, luminosity and vegetation contours for horizontal tiling. All horizontal positions have the SAME gentle vertical gradient, pale muted turquoise at top fading to deep navy teal bottom. No bright corner or directional lighting gradient. Large empty quiet water center, distant low contrast fish only. Low soft distant blue coral silhouettes restricted to bottom fifth, no close detailed coral or characters, no platforms, no text. Soft painterly warm ink style. Opaque background, no transparency. Uniform horizontal illumination; no hard vertical edges. This is the distant layer behind separately drawn foreground game props.
+
+With user authorization, `scripts/prepare-reef-props.py` removes only the edge-connected pale checkerboard, preserving enclosed pearl highlights. Run `python3 scripts/prepare-reef-props.py` with Pillow to rebuild `public/assets/reef-props.png` and the teal-background inspection image `art/reef-props-preview.jpg`. `Preloader` defines the six texture regions used by the scenery, pearls, reward blocks, and shell house.
