@@ -1,13 +1,48 @@
 import type * as Phaser from 'phaser';
-import { WORLD, platforms } from '../model/level';
+import { generateLevel, type Level } from '../model/level';
 
 export class ReefScenery {
   private water: Phaser.GameObjects.Image[] = [];
   private ledges: { x: number; image: Phaser.GameObjects.Image }[] = [];
   private floor: Phaser.GameObjects.TileSprite;
 
-  constructor(private scene: Phaser.Scene) {
-    for (const platform of platforms) {
+  constructor(
+    private scene: Phaser.Scene,
+    private level: Level = generateLevel(),
+  ) {
+    const texture =
+      level.biome === 'kelp' ? 'kelp-forest-props' : 'crystal-cave-props';
+    if (level.biome !== 'reef') {
+      for (let i = 0; i < 15; i++) {
+        const x = 240 + i * 250;
+        this.ledges.push({
+          x,
+          image: scene.add
+            .image(
+              x,
+              level.world.floor + 8,
+              texture,
+              i % 3 === 0 ? 'rock' : i % 3 === 1 ? 'plant' : 'plant-small',
+            )
+            .setOrigin(0.5, 1)
+            .setDisplaySize(i % 3 === 1 ? 105 : 90, i % 3 === 1 ? 180 : 100)
+            .setAlpha(0.8)
+            .setDepth(-8),
+        });
+      }
+    }
+    for (const platform of level.platforms) {
+      if (level.biome !== 'reef') {
+        this.ledges.push({
+          x: platform.x,
+          image: scene.add
+            .image(platform.x, platform.y - 5, texture, 'platform')
+            .setOrigin(0)
+            .setDisplaySize(platform.width, 65)
+            .setDepth(-5),
+        });
+        continue;
+      }
       const height = platform.height + 10;
       const cap = 22;
       for (const piece of [
@@ -36,15 +71,16 @@ export class ReefScenery {
     this.floor = scene.add
       .tileSprite(
         0,
-        WORLD.floor,
+        level.world.floor,
         scene.scale.width,
         86,
-        'reef-props',
-        'ledge-middle',
+        level.biome === 'reef' ? 'reef-props' : texture,
+        level.biome === 'reef' ? 'ledge-middle' : 'floor',
       )
       .setOrigin(0)
       .setDepth(-5)
       .setTileScale(0.5);
+    if (level.biome !== 'reef') this.floor.setTileScale(0.5, 0.6);
   }
 
   render(cameraX: number) {
@@ -55,7 +91,18 @@ export class ReefScenery {
     const count = Math.ceil(width / tileWidth) + 1;
     while (this.water.length < count) {
       this.water.push(
-        this.scene.add.image(0, 0, 'reef-distant').setOrigin(0).setDepth(-20),
+        this.scene.add
+          .image(
+            0,
+            0,
+            this.level.biome === 'reef'
+              ? 'reef-distant'
+              : this.level.biome === 'kelp'
+                ? 'kelp-forest-background'
+                : 'crystal-cave-background',
+          )
+          .setOrigin(0)
+          .setDepth(-20),
       );
     }
     this.water.forEach((image, index) => {

@@ -1,3 +1,4 @@
+import { readJourney } from './journey';
 import * as Phaser from 'phaser';
 import { OceanScene } from './scenes/OceanScene';
 import { Preloader } from './scenes/Preloader';
@@ -8,7 +9,11 @@ export function createOceanGame(
   callbacks: GameCallbacks,
 ): GameController {
   const readiness = Promise.withResolvers<void>();
-  const scene = new OceanScene(callbacks, () => readiness.resolve());
+  const scene = new OceanScene(
+    callbacks,
+    () => readiness.resolve(),
+    readJourney(),
+  );
   const width = () =>
     Math.round((720 * parent.clientWidth) / Math.max(1, parent.clientHeight));
   const game = new Phaser.Game({

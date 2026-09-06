@@ -15,6 +15,10 @@ export class Preloader extends Phaser.Scene {
       frameHeight: 288,
       endFrame: 7,
     });
+    for (const biome of ['kelp-forest', 'crystal-cave']) {
+      this.load.image(`${biome}-background`, `/assets/${biome}-background.png`);
+      this.load.image(`${biome}-props`, `/assets/${biome}-props.png`);
+    }
     this.load.image('reef-distant', '/assets/reef-distant.png');
     this.load.image('reef-props', '/assets/reef-props.png');
     this.load.image('costume-cat', '/assets/costume-cat.png');
@@ -27,6 +31,16 @@ export class Preloader extends Phaser.Scene {
   }
   create() {
     if (this.failed) return;
+    for (const biome of ['kelp-forest', 'crystal-cave']) {
+      const texture = this.textures.get(`${biome}-props`);
+      const kelp = biome === 'kelp-forest';
+      texture.add('platform', 0, 15, kelp ? 170 : 115, 675, kelp ? 325 : 345);
+      texture.add('floor', 0, kelp ? 700 : 740, kelp ? 730 : 660, 240, 150);
+      texture.add('plant', 0, 700, 5, 410, 505);
+      texture.add('rock', 0, 1140, 20, 385, 485);
+      texture.add('shell-house', 0, 10, 515, kelp ? 465 : 565, 475);
+      texture.add('plant-small', 0, 1150, 590, 380, 390);
+    }
     const props = this.textures.get('reef-props');
     props.add('ledge-left', 0, 74, 176, 95, 180);
     props.add('ledge-middle', 0, 169, 176, 583, 180);

@@ -2,7 +2,7 @@
 
 [![Quality](https://github.com/alexanderop/little-lobster/actions/workflows/quality.yml/badge.svg)](https://github.com/alexanderop/little-lobster/actions/workflows/quality.yml)
 
-A Vue 3 and Phaser 3 browser adventure. Collect 18 pearls, bump golden blocks, stomp smaller enemies, meet a narwhal, and reach the home shell.
+A Vue 3 and Phaser 3 browser adventure with endless levels. Collect 18 pearls, bump golden blocks, stomp smaller enemies, and reach the shell to open the next ocean.
 
 ![Little Lobster welcome screen](./e2e/game.test.ts-snapshots/welcome-desktop-darwin.png)
 
@@ -41,7 +41,7 @@ pnpm test:browser
 pnpm build && pnpm test:e2e
 ```
 
-- Node tests exercise the actual simulation, including the complete pearl trail, block rewards, stomps, jump height, cooldowns, checkpoints, and the win boundary. Input tests cover overlapping keyboard and pointer sources.
+- Node tests drive the easy route through 1,200 generated levels and check seeded layouts, progression, retries, and saved journeys. They also exercise the original simulation, including the complete pearl trail, block rewards, stomps, jump height, cooldowns, checkpoints, and the win boundary. Input tests cover overlapping keyboard and pointer sources.
 - Vitest Browser Mode uses Chromium and real Phaser scenes/assets. It covers sprite updates, pause, restart, game destruction, and the mounted Vue interface.
 - Playwright tests the built app, including keyboard and touch controls, menu focus, loading failures, retry, score persistence, and desktop/mobile welcome screenshots. Mobile tests emulate touch in Chromium; they do not prove iOS Safari behavior.
 
@@ -53,12 +53,16 @@ Oxlint performs type-aware linting. `vue-tsc` owns type checking, including Vue 
 
 See [the architecture guide](./ARCHITECTURE.md) for ownership, Phaser lifecycle, and where to put new behavior.
 
-Only the best completed pearl count is saved locally. A page reload starts a new run. Checkpoints, collected pearls, and used blocks survive retries within that run. Starting over resets the run and its visual effects.
+The opening level preserves the original reef adventure and its two golden-pearl challenges. Later levels cycle through Kelp Forest, Crystal Caves, and Sunlit Reef. Each combines five different sections drawn from eight templates, with varied shelves, enemies, and currents. Every fourth level has fewer encounters and gentler currents. Hold sink and follow the seabed pearls for an easy route.
+
+Reaching the shell saves the next level, the journey seed, and pearls from completed levels in local storage. Select **Next level** to continue. Reloading resumes at the start of the saved level with three hearts. Checkpoints, collected pearls, and used blocks survive retries while the page remains open, but are not saved mid-level. **Start over** resets the journey and chooses a new seed. The best individual level score is saved separately. If storage is unavailable, the game still runs, but progress cannot survive a reload.
+
+The generated backgrounds and transparent prop sheets are bundled locally. Gameplay does not call an image-generation service. See [the environment prompts](./art/endless-environments-prompts.md).
 
 The optional WebMCP tools `read_game_state` and `set_game_paused` register after Phaser is ready when the browser supports `document.modelContext`. Ordinary gameplay does not require that API.
 
-## Build and hosting
+## Production build
 
-`pnpm build` produces a static site in `dist/`. `pnpm start` previews that build locally. `.openai/hosting.json` retains the existing Sites project and points to the static output; the game needs no server bindings.
+`pnpm build` produces a static site in `dist/`. `pnpm start` previews that build locally. The game needs no server.
 
 [Asset sources and generation prompts](./ART.md)

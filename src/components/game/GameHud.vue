@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Check, Heart, Pause, Play, Shell, Waves, Zap } from '@lucide/vue';
 import type { Snapshot } from '../../game/contracts';
-import { WORLD, regionNames } from '../../game/model/level';
+
 defineProps<{ snapshot: Snapshot; ready: boolean }>();
 defineEmits<{ pause: [boolean] }>();
 </script>
@@ -20,11 +20,11 @@ defineEmits<{ pause: [boolean] }>();
       </div>
       <div
         class="pearl-score"
-        :aria-label="`${snapshot.pearls} of ${WORLD.requiredPearls} pearls`"
+        :aria-label="`${snapshot.pearls} of ${snapshot.requiredPearls} pearls`"
       >
         <span class="pearl-dot" />{{ snapshot.pearls
-        }}<span>/ {{ WORLD.requiredPearls }}</span>
-        <Check v-if="snapshot.pearls >= WORLD.requiredPearls" :size="15" />
+        }}<span>/ {{ snapshot.requiredPearls }}</span>
+        <Check v-if="snapshot.pearls >= snapshot.requiredPearls" :size="15" />
       </div>
     </div>
     <div class="hud-right">
@@ -56,13 +56,17 @@ defineEmits<{ pause: [boolean] }>();
   <div v-if="ready && snapshot.challenge" class="challenge-hud">
     <span>{{ snapshot.challenge }}</span>
     <span
+      v-if="snapshot.treasureTotal > 0"
       class="treasure-count"
-      :aria-label="`${snapshot.treasures} of 2 golden pearls`"
-      >✦ {{ snapshot.treasures }}/2</span
+      :aria-label="`${snapshot.treasures} of ${snapshot.treasureTotal} golden pearls`"
+      >✦ {{ snapshot.treasures }}/{{ snapshot.treasureTotal }}</span
     >
   </div>
   <div class="game-route">
-    <span><Waves :size="14" />{{ regionNames[snapshot.region] }}</span>
+    <span
+      ><Waves :size="14" />Level {{ snapshot.level }} ·
+      {{ snapshot.biomeName }}</span
+    >
     <div
       class="route-track"
       role="progressbar"
@@ -73,6 +77,8 @@ defineEmits<{ pause: [boolean] }>();
     >
       <i :style="{ width: `${Math.min(100, snapshot.progress * 100)}%` }" />
     </div>
-    <Shell :size="18" />
+    <span aria-label="Journey pearls"
+      >{{ snapshot.totalPearls }} total <Shell :size="18"
+    /></span>
   </div>
 </template>

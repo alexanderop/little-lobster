@@ -1,10 +1,8 @@
 import {
-  WORLD,
-  platforms,
+  generateLevel,
+  type Level,
+  type CreatureKind,
   pearlBlocks,
-  pearlTrail,
-  reefTrial,
-  reefTreasures,
   TREASURE_VALUE,
   bounceFishIds,
 } from './level';
@@ -25,7 +23,7 @@ export const idleInput = (): Input => ({
   fire: false,
 });
 export type Status = 'playing' | 'paused' | 'lost' | 'won';
-export type CreatureKind = 'catfish' | 'sepia' | 'bigfin' | 'costume-cat';
+export type { CreatureKind } from './level';
 export type Creature = {
   id: number;
   kind: CreatureKind;
@@ -65,6 +63,8 @@ export type RingTrial =
   | { kind: 'racing'; nextRing: number; remaining: number }
   | { kind: 'complete' };
 export type GameState = {
+  level: Level;
+  bankedPearls: number;
   ringTrial: RingTrial;
   stompChain: number;
   treasures: { x: number; y: number; unlocked: boolean; collected: boolean }[];
@@ -98,8 +98,11 @@ export type GameState = {
   ink: number;
   events: GameEvent[];
 };
-export function createGame(): GameState {
-  const pearls = pearlTrail.map((pearl) => ({ ...pearl, collected: false }));
+export function createGame(
+  level = generateLevel(),
+  bankedPearls = 0,
+): GameState {
+  const pearls = level.pearls.map((pearl) => ({ ...pearl, collected: false }));
   const creatures: Creature[] = [
     {
       id: 0,
@@ -187,10 +190,26 @@ export function createGame(): GameState {
       active: true,
     });
   }
+  if (level.number > 1) {
+    creatures.splice(
+      0,
+      creatures.length,
+      ...level.encounters.map((enemy, id) => ({
+        ...enemy,
+        id,
+        homeX: enemy.x,
+        homeY: enemy.y,
+        radius: enemy.kind === 'bigfin' ? 72 : 40,
+        active: true,
+      })),
+    );
+  }
   return {
+    level,
+    bankedPearls,
     ringTrial: { kind: 'ready' },
     stompChain: 0,
-    treasures: reefTreasures.map(({ x, y }) => ({
+    treasures: level.treasures.map(({ x, y }) => ({
       x,
       y,
       unlocked: false,
@@ -200,10 +219,10 @@ export function createGame(): GameState {
     elapsed: 0,
     pearls,
     creatures,
-    blocks: pearlBlocks.map((block) => ({ ...block, used: false, bump: 0 })),
+    blocks: level.blocks.map((block) => ({ ...block, used: false, bump: 0 })),
     player: {
       x: 160,
-      y: WORLD.floor - 34,
+      y: level.world.floor - 34,
       vx: 0,
       vy: 0,
       facing: 1,
@@ -239,7 +258,7 @@ export function setPaused(state: GameState, paused: boolean) {
 export function continueGame(state: GameState) {
   if (state.status !== 'lost') return;
   Object.assign(state.player, {
-    x: state.checkpoint ? 2570 : 160,
+    x: state.checkpoint ? state.level.checkpointX : 160,
     y: 445,
     vx: 0,
     vy: 0,
@@ -259,7 +278,7 @@ export function continueGame(state: GameState) {
   state.electroBalls = [];
   state.ink = 0;
   state.stompChain = 0;
-  if (!state.treasures[0]?.unlocked)
+  if (state.level.number === 1 && !state.treasures[0]?.unlocked)
     for (const enemy of state.creatures)
       if (bounceFishIds.includes(enemy.id)) enemy.active = true;
   if (state.ringTrial.kind === 'racing') state.ringTrial = { kind: 'ready' };
@@ -337,8 +356,13 @@ export function advance(
   if (p.dashTime > 0) p.vy *= Math.max(0, 1 - dt * 12);
   const oldX = p.x;
   const oldY = p.y;
-  p.x = clamp(p.x + p.vx * dt, 36, WORLD.width - 36);
-  if (oldX >= 880 && p.x < 880 && !state.treasures[0]?.unlocked) {
+  p.x = clamp(p.x + p.vx * dt, 36, state.level.world.width - 36);
+  if (
+    state.level.number === 1 &&
+    oldX >= 880 &&
+    p.x < 880 &&
+    !state.treasures[0]?.unlocked
+  ) {
     state.stompChain = 0;
     for (const enemy of state.creatures)
       if (bounceFishIds.includes(enemy.id)) enemy.active = true;
@@ -353,10 +377,10 @@ export function advance(
       p.vx = 0;
     }
   }
-  p.y = clamp(p.y + p.vy * dt, 90, WORLD.floor - 34);
-  p.grounded = p.y === WORLD.floor - 34;
+  p.y = clamp(p.y + p.vy * dt, 90, state.level.world.floor - 34);
+  p.grounded = p.y === state.level.world.floor - 34;
   if (p.y === 90 || p.grounded) p.vy = 0;
-  for (const platform of platforms) {
+  for (const platform of state.level.platforms) {
     if (
       !input.down &&
       p.vy >= 0 &&
@@ -392,17 +416,21 @@ export function advance(
       p.grounded = true;
     }
   }
-  if (!input.down && p.x > 1640 && p.x < 1780 && p.y > 240)
-    p.vy = Math.min(p.vy, -340);
-  if (!input.down && p.x > 3990 && p.x < 4110) p.vy = Math.min(p.vy, -190);
+  for (const current of state.level.currents)
+    if (
+      !input.down &&
+      Math.abs(p.x - current.x) < current.width / 2 &&
+      p.y > current.top
+    )
+      p.vy = Math.min(p.vy, -current.speed);
   if (p.grounded) state.stompChain = 0;
   const ringIndex =
     state.ringTrial.kind === 'racing' ? state.ringTrial.nextRing : 0;
-  const ring = reefTrial.rings[ringIndex];
+  const ring = state.level.trial.rings[ringIndex];
   if (state.ringTrial.kind !== 'complete' && ring && distance(p, ring) < 46) {
     state.events.push({ kind: 'ring', x: ring.x, y: ring.y });
     p.dashCooldown = 0;
-    if (ringIndex === reefTrial.rings.length - 1) {
+    if (ringIndex === state.level.trial.rings.length - 1) {
       state.ringTrial = { kind: 'complete' };
       const treasure = state.treasures[1];
       if (treasure) {
@@ -420,7 +448,7 @@ export function advance(
         remaining:
           state.ringTrial.kind === 'racing'
             ? state.ringTrial.remaining
-            : reefTrial.seconds,
+            : state.level.trial.seconds,
       };
     }
   }
@@ -442,7 +470,7 @@ export function advance(
     }
   for (const pickup of state.electroPickups) {
     pickup.life -= dt;
-    pickup.y = Math.min(WORLD.floor - 28, pickup.y + dt * 38);
+    pickup.y = Math.min(state.level.world.floor - 28, pickup.y + dt * 38);
     if (pickup.life > 0 && pickup.life < 9.65 && distance(p, pickup) < 52) {
       pickup.life = 0;
       p.electroTime = 20;
@@ -468,7 +496,7 @@ export function advance(
     ball.life -= dt;
     if (
       ball.x < 0 ||
-      ball.x > WORLD.width ||
+      ball.x > state.level.world.width ||
       state.blocks.some(
         (block) =>
           Math.abs(ball.x - block.x) < 34 && Math.abs(ball.y - block.y) < 34,
@@ -476,13 +504,13 @@ export function advance(
     )
       ball.life = 0;
   }
-  if (!state.checkpoint && p.x >= 2530) {
+  if (!state.checkpoint && p.x >= state.level.checkpointX - 40) {
     state.checkpoint = true;
     p.health = 3;
     state.events.push({ kind: 'checkpoint', x: p.x, y: p.y });
   }
   const narwhal = {
-    x: 3370 + Math.sin(state.elapsed * 0.5) * 110,
+    x: state.level.friendX + Math.sin(state.elapsed * 0.5) * 110,
     y: 230 + Math.sin(state.elapsed * 0.8) * 35,
   };
   if (!state.friend && distance(p, narwhal) < 110) {
@@ -550,7 +578,7 @@ export function advance(
         p.invincible = 1.8;
         p.vy = -200;
         const knockback = Math.sign(p.x - enemy.x) || -p.facing;
-        p.x = clamp(p.x + knockback * 65, 36, WORLD.width - 36);
+        p.x = clamp(p.x + knockback * 65, 36, state.level.world.width - 36);
         state.events.push({ kind: 'hurt', x: p.x, y: p.y });
         if (p.health <= 0) {
           state.status = 'lost';
@@ -561,9 +589,9 @@ export function advance(
   }
   state.electroBalls = state.electroBalls.filter((ball) => ball.life > 0);
   if (
-    p.x > WORLD.exitX - 75 &&
-    Math.abs(p.y - WORLD.exitY) < 110 &&
-    pearlCount(state) >= WORLD.requiredPearls
+    p.x > state.level.world.exitX - 75 &&
+    Math.abs(p.y - state.level.world.exitY) < 110 &&
+    pearlCount(state) >= state.level.world.requiredPearls
   ) {
     state.status = 'won';
     state.events.push({ kind: 'win', x: p.x, y: p.y });
@@ -571,6 +599,12 @@ export function advance(
 }
 
 export function adventureHint(state: GameState): string {
+  if (state.level.number > 1)
+    return state.level.number % 4 === 0
+      ? 'A calmer stretch. Explore the shelves, or follow the seabed pearls.'
+      : state.level.biome === 'kelp'
+        ? 'Ride the kelp currents upward. Hold sink for the easy pearl route.'
+        : 'Explore the upper shelves for extra pearls. The seabed leads to the shell.';
   if (state.ringTrial.kind === 'racing')
     return `Ring ${state.ringTrial.nextRing + 1}/3 · ${state.ringTrial.remaining.toFixed(1)}s · Dash refilled!`;
   if (state.player.x < 850)
@@ -592,4 +626,12 @@ export function adventureHint(state: GameState): string {
     return 'Ride the current into ring 1 · Race all 3 to win a golden pearl';
   }
   return '';
+}
+
+export function nextLevel(state: GameState): GameState {
+  if (state.status !== 'won') return state;
+  return createGame(
+    generateLevel(state.level.number + 1, state.level.seed),
+    state.bankedPearls + pearlCount(state),
+  );
 }

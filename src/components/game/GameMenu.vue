@@ -8,14 +8,14 @@ const primary = useTemplateRef<HTMLButtonElement>('primary');
 const menu = useTemplateRef<HTMLDivElement>('menu');
 const title = computed(() =>
   props.snapshot.status === 'won'
-    ? 'Home, sweet shell.'
+    ? `Level ${props.snapshot.level} complete!`
     : props.snapshot.status === 'lost'
       ? 'A little breather.'
       : 'Just floating.',
 );
 onMounted(() => primary.value?.focus({ preventScroll: true }));
 function proceed() {
-  if (props.snapshot.status === 'won') emit('restart');
+  if (props.snapshot.status === 'won') emit('retry');
   else if (props.snapshot.status === 'lost') emit('retry');
   else emit('resume');
 }
@@ -65,6 +65,13 @@ function trapFocus(event: KeyboardEvent) {
         }}
       </p>
       <p v-if="snapshot.status === 'won'" class="treasure-result">
+        {{ snapshot.totalPearls }} pearls on your journey. Level
+        {{ snapshot.level + 1 }} is ready.
+      </p>
+      <p
+        v-if="snapshot.status === 'won' && snapshot.treasureTotal > 0"
+        class="treasure-result"
+      >
         {{ snapshot.treasures }}/2 golden pearls found.{{
           snapshot.treasures < 2
             ? ' Try the high reef route for the others!'
@@ -75,11 +82,14 @@ function trapFocus(event: KeyboardEvent) {
         Your pearls are safe. Try again from
         {{ snapshot.checkpoint ? 'the checkpoint' : 'the reef' }}.
       </p>
-      <p v-else>The ocean will be right here.</p>
+      <p v-else-if="snapshot.status === 'paused'">
+        The ocean will be right here. Reloading resumes at the start of this
+        level.
+      </p>
       <button ref="primary" class="dive-button" @click="proceed">
         {{
           snapshot.status === 'won'
-            ? 'Play again'
+            ? 'Next level'
             : snapshot.status === 'lost'
               ? 'Keep swimming'
               : 'Keep playing'

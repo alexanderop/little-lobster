@@ -5,7 +5,6 @@
     "public/**",
     "scripts/**",
     "pnpm-lock.yaml",
-    ".openai/**",
     "ART.md",
     "dist/**",
     "test-results/**",

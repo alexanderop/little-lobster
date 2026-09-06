@@ -8,6 +8,8 @@ import {
 } from 'vue';
 import {
   ArrowRight,
+  Maximize,
+  Minimize,
   RotateCcw,
   Shell,
   Sparkles,
@@ -21,7 +23,7 @@ import GameMenu from './components/game/GameMenu.vue';
 import TouchControls from './components/game/TouchControls.vue';
 import { OceanAudio } from './game/audio';
 import { readBest, saveBest } from './game/best-score';
-import { TOTAL_PEARLS, WORLD, regionNames } from './game/model/level';
+import { TOTAL_PEARLS, WORLD, biomeNames } from './game/model/level';
 import type { GameEvent, Input } from './game/model/simulation';
 import type { Snapshot } from './game/contracts';
 
@@ -33,6 +35,12 @@ const muted = ref(true),
   best = ref(readBest());
 const snapshot = shallowRef<Snapshot>({
   status: 'playing',
+  level: 1,
+  biome: 'reef',
+  biomeName: 'Sunlit Reef',
+  totalPearls: 0,
+  requiredPearls: 18,
+  treasureTotal: 2,
   pearls: 0,
   health: 3,
   progress: 0,
@@ -46,6 +54,32 @@ const snapshot = shallowRef<Snapshot>({
   challenge: '',
 });
 const game = useTemplateRef<InstanceType<typeof PhaserGame>>('game');
+const app = useTemplateRef<HTMLElement>('app');
+const fullscreen = ref(false);
+const fullscreenPending = ref(false);
+const fullscreenError = ref('');
+const fullscreenSupported = document.fullscreenEnabled;
+function syncFullscreen() {
+  fullscreen.value = document.fullscreenElement === app.value;
+}
+async function toggleFullscreen() {
+  if (!app.value || fullscreenPending.value) return;
+  fullscreenPending.value = true;
+  fullscreenError.value = '';
+  try {
+    if (document.fullscreenElement === app.value)
+      await document.exitFullscreen();
+    else await app.value.requestFullscreen();
+    if (started.value && snapshot.value.status === 'playing')
+      game.value?.focus();
+  } catch {
+    fullscreenError.value = 'Fullscreen could not open. Please try again.';
+  } finally {
+    syncFullscreen();
+    fullscreenPending.value = false;
+  }
+}
+document.addEventListener('fullscreenchange', syncFullscreen);
 const audio = new OceanAudio();
 let noticeTimer: ReturnType<typeof setTimeout> | undefined;
 const overlay = computed(
@@ -58,7 +92,7 @@ const messages: Record<GameEvent['kind'], string> = {
   treasure: '+3 pearls! Golden treasure found.',
   checkpoint: 'Checkpoint reached. Hearts restored!',
   friend: 'Narwhal says hello! Hearts restored + a little protection.',
-  win: 'You brought the pearls home.',
+  win: 'Pearls delivered! The next ocean is ready.',
   hurt: 'Stomp smaller enemies from above, or claw dash through.',
   'electro-spawn': 'An electric pearl! Catch the glowing orb.',
   'electro-pickup': 'Electro power! Hold F or Electro to shoot for 20 seconds.',
@@ -112,6 +146,7 @@ onBeforeUnmount(() => {
   audio.destroy();
   clearTimeout(noticeTimer);
   window.removeEventListener('storage', updateBest);
+  document.removeEventListener('fullscreenchange', syncFullscreen);
 });
 function reload() {
   window.location.reload();
@@ -119,7 +154,7 @@ function reload() {
 </script>
 
 <template>
-  <main class="ocean-app">
+  <main ref="app" class="ocean-app">
     <header class="masthead">
       <a class="wordmark" href="/" aria-label="Little Lobster home"
         ><Shell :size="28" /><span
@@ -132,6 +167,17 @@ function reload() {
           ><Sparkles :size="14" />Best {{ best }}/{{ TOTAL_PEARLS }}</span
         >
         <button
+          v-if="fullscreenSupported"
+          class="icon-button"
+          :aria-label="fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'"
+          :title="fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'"
+          :aria-pressed="fullscreen"
+          :disabled="fullscreenPending"
+          @click="toggleFullscreen"
+        >
+          <Minimize v-if="fullscreen" /><Maximize v-else />
+        </button>
+        <button
           class="icon-button"
           :aria-label="muted ? 'Turn sound on' : 'Mute sound'"
           :aria-pressed="!muted"
@@ -141,6 +187,7 @@ function reload() {
         </button>
       </div>
     </header>
+    <p v-if="fullscreenError" role="alert">{{ fullscreenError }}</p>
     <section
       class="game-frame"
       :class="{ 'is-playing': started }"
@@ -150,21 +197,21 @@ function reload() {
         <div class="welcome-sea" />
         <div class="welcome-vignette" />
         <div class="chapter-tag">
-          <span class="live-dot" />WORLD 01<span class="tag-divider">/</span>THE
+          <span class="live-dot" />ENDLESS<span class="tag-divider">/</span>THE
           PEARL TRAIL
         </div>
         <div class="welcome-content">
           <p class="eyebrow">SMALL CLAWS. BIG ADVENTURE.</p>
           <h1>Little<br /><em>Lobster</em></h1>
           <p class="welcome-copy">
-            Jump. Swim. Stomp.<br />Bring the pearls back home.
+            Jump. Swim. Stomp.<br />A new ocean beyond every shell.
           </p>
           <button class="dive-button" @click="started = true">
             Let’s play<ArrowRight :size="20" />
           </button>
           <span class="start-hint"
-            >Collect {{ WORLD.requiredPearls }} pearls and find the home
-            shell.</span
+            >Collect {{ WORLD.requiredPearls }} pearls to open the next level.
+            Progress saves at each shell.</span
           >
         </div>
         <img
@@ -175,7 +222,7 @@ function reload() {
           alt="Your little hamster hero in a red lobster suit"
         />
         <div class="world-label">
-          <Waves :size="18" />Sunlit Reef<span>01 / 03</span>
+          <Waves :size="18" />Sunlit Reef<span>LEVEL 1 → ∞</span>
         </div>
       </template>
       <template v-else>
@@ -207,12 +254,12 @@ function reload() {
         <div
           v-if="
             snapshot.progress > 0.91 &&
-            snapshot.pearls < WORLD.requiredPearls &&
+            snapshot.pearls < snapshot.requiredPearls &&
             snapshot.status === 'playing'
           "
           class="exit-hint"
         >
-          Find {{ WORLD.requiredPearls - snapshot.pearls }} more pearls, then
+          Find {{ snapshot.requiredPearls - snapshot.pearls }} more pearls, then
           return to the shell.
         </div>
         <GameMenu
@@ -241,16 +288,18 @@ function reload() {
     </div>
     <div class="chapter-strip">
       <div
-        v-for="(name, index) in regionNames"
+        v-for="(name, biome) in biomeNames"
         :key="name"
-        :class="{ 'current-chapter': snapshot.region === index }"
+        :class="{ 'current-chapter': snapshot.biome === biome }"
       >
-        <span>0{{ index + 1 }}</span
+        <span>{{
+          biome === 'reef' ? '01' : biome === 'kelp' ? '02' : '03'
+        }}</span
         >{{ name }}<span class="chapter-line" />
       </div>
     </div>
     <footer class="game-footer">
-      <span>WORLD 1 · PEARL RESCUE</span
+      <span>LEVEL {{ snapshot.level }} · ENDLESS PEARL RESCUE</span
       ><span>Collect pearls. Make waves.</span>
     </footer>
   </main>

@@ -4,6 +4,9 @@ import { OceanScene } from '../../src/game/scenes/OceanScene';
 import { Preloader } from '../../src/game/scenes/Preloader';
 import { createOceanGame } from '../../src/game/createGame';
 import { EnemyView } from '../../src/game/objects/EnemyView';
+import { OceanEffects } from '../../src/game/objects/OceanEffects';
+import { OceanView } from '../../src/game/objects/OceanView';
+import { generateLevel } from '../../src/game/model/level';
 import { createGame, idleInput } from '../../src/game/model/simulation';
 
 const cleanups: (() => Promise<void>)[] = [];
@@ -11,7 +14,7 @@ afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
 });
 
-async function boot() {
+async function boot(initialState = createGame()) {
   const parent = document.createElement('div');
   parent.style.cssText = 'width:960px;height:720px';
   document.body.append(parent);
@@ -19,6 +22,7 @@ async function boot() {
   const scene = new OceanScene(
     { onSnapshot() {}, onEvent() {} },
     ready.resolve,
+    initialState,
   );
   const game = new Phaser.Game({
     type: Phaser.CANVAS,
@@ -203,3 +207,172 @@ test('electric pickup and projectile use the generated texture and reset without
   view.reset(createGame());
   expect(scene.children.getByName('electro-orb')).toBeNull();
 });
+
+test('dash bubbles freeze on pause, resume, and disappear on restart without accumulating emitters', async () => {
+  const { scene } = await boot();
+  const bubbles = scene.children.getByName('dash-and-stomp-bubbles');
+  if (!(bubbles instanceof Phaser.GameObjects.Particles.ParticleEmitter))
+    throw new Error('Dash emitter missing');
+  const objectCount = scene.children.length;
+  scene.setInput({ ...idleInput(), right: true, dash: true });
+  for (let i = 0; i < 6; i++) scene.update(i * 17, 1000 / 60);
+  expect(bubbles.getAliveParticleCount()).toBeGreaterThan(0);
+  const particles: Phaser.GameObjects.Particles.Particle[] = [];
+  bubbles.forEachAlive((particle) => particles.push(particle), undefined);
+  const particle = particles[0];
+  if (!particle) throw new Error('Dash bubble missing');
+  const position = () => ({
+    x: particle.x,
+    y: particle.y,
+    life: particle.lifeCurrent,
+  });
+  scene.pause(true);
+  const frozen = position();
+  scene.sys.updateList.sceneUpdate(100, 100);
+  scene.update(100, 100);
+  expect(position()).toEqual(frozen);
+  scene.pause(false);
+  scene.sys.updateList.sceneUpdate(200, 100);
+  expect(particle.lifeCurrent).toBeLessThan(frozen.life);
+  expect(particle.y).not.toBe(frozen.y);
+  scene.restart();
+  expect(bubbles.getAliveParticleCount()).toBe(0);
+  expect(scene.children.length).toBe(objectCount);
+});
+
+test('stomps, electricity, and treasure have separate bounded effects that scroll with the world', async () => {
+  const { scene } = await boot();
+  const effects = new OceanEffects(scene);
+  const emitters = scene.children.list
+    .filter(
+      (object): object is Phaser.GameObjects.Particles.ParticleEmitter =>
+        object instanceof Phaser.GameObjects.Particles.ParticleEmitter,
+    )
+    .slice(-4);
+  const [bubbles, sparks, gold, motes] = emitters;
+  if (!bubbles || !sparks || !gold || !motes)
+    throw new Error('Effect emitters missing');
+  effects.burst({ kind: 'stomp', x: 1000, y: 300 });
+  expect(bubbles.getAliveParticleCount()).toBeGreaterThan(0);
+  expect(sparks.getAliveParticleCount()).toBe(0);
+  effects.burst({ kind: 'electro-hit', x: 1000, y: 300 });
+  effects.burst({ kind: 'treasure', x: 1000, y: 300 });
+  expect(sparks.getAliveParticleCount()).toBeGreaterThan(0);
+  expect(gold.getAliveParticleCount()).toBeGreaterThan(0);
+  expect(motes.getAliveParticleCount()).toBe(0);
+  const fragments: Phaser.GameObjects.Particles.Particle[] = [];
+  gold.forEachAlive((particle) => fragments.push(particle), undefined);
+  const fragment = fragments[0];
+  if (!fragment) throw new Error('Treasure fragment missing');
+  expect(fragment.x).toBe(1000);
+  effects.render(createGame(), 600, 0);
+  expect(fragment.x + gold.x).toBe(400);
+  effects.render(createGame(), 700, 0);
+  expect(fragment.x + gold.x).toBe(300);
+  for (let i = 0; i < 50; i++)
+    effects.burst({ kind: 'electro-hit', x: 1000, y: 300 });
+  expect(sparks.getParticleCount()).toBeLessThanOrEqual(100);
+  scene.sys.updateList.update();
+  for (let i = 0; i < 70; i++) scene.sys.updateList.sceneUpdate(i * 17, 17);
+  expect(
+    emitters.every((emitter) => emitter.getAliveParticleCount() === 0),
+  ).toBe(true);
+});
+
+test('unlocking treasure grows and lifts the pearl, pauses, settles, and resets on retry', async () => {
+  const { scene } = await boot();
+  const { advance, continueGame } =
+    await import('../../src/game/model/simulation');
+  const { reefTrial } = await import('../../src/game/model/level');
+  const state = createGame();
+  const view = new OceanView(scene, state);
+  for (const ring of reefTrial.rings) {
+    state.player.x = ring.x;
+    state.player.y = ring.y;
+    advance(state, idleInput(), 1 / 60);
+    for (const event of state.events) view.burst(event);
+  }
+  expect(state.ringTrial.kind).toBe('complete');
+  const pearl = scene.children.list
+    .filter(
+      (object): object is Phaser.GameObjects.Image =>
+        object instanceof Phaser.GameObjects.Image &&
+        object.name === 'golden-pearl',
+    )
+    .at(-1);
+  const tween = scene.tweens.getTweens()[0];
+  if (!pearl || !tween) throw new Error('Treasure animation missing');
+  view.render(state, 0);
+  const baseY = pearl.y;
+  for (let i = 0; i < 12; i++) tween.forward(17);
+  view.render(state, 0);
+  expect(pearl.displayWidth).toBeGreaterThan(42);
+  expect(pearl.y).toBeLessThan(baseY);
+  const pose = { y: pearl.y, width: pearl.displayWidth };
+  state.status = 'paused';
+  view.setPlaying(false);
+  tween.forward(100);
+  view.render(state, 0);
+  expect({ y: pearl.y, width: pearl.displayWidth }).toEqual(pose);
+  state.status = 'playing';
+  view.setPlaying(true);
+  for (let i = 0; i < 60; i++) tween.forward(17);
+  scene.tweens.tick();
+  view.render(state, 0);
+  expect(pearl.displayWidth).toBeCloseTo(42);
+  expect(pearl.y).toBeCloseTo(baseY);
+  const treasure = state.treasures[1];
+  if (!treasure) throw new Error('Treasure missing');
+  view.burst({ kind: 'treasure-unlocked', x: treasure.x, y: treasure.y });
+  state.status = 'lost';
+  continueGame(state);
+  view.reset(state);
+  expect(treasure.unlocked).toBe(true);
+  expect(pearl.displayWidth).toBeCloseTo(42);
+  expect(scene.tweens.getTweens()).toHaveLength(0);
+});
+
+test('successive levels replace scene objects, clear held input, and use each biome texture', async () => {
+  const { scene } = await boot(createGame(generateLevel(2, 52)));
+  for (let level = 2; level < 8; level++) {
+    expect(scene.snapshot().level).toBe(level);
+    const textures = scene.children.list
+      .filter(
+        (child): child is Phaser.GameObjects.Image =>
+          child instanceof Phaser.GameObjects.Image,
+      )
+      .map((image) => image.texture.key);
+    expect(textures).toContain(
+      level % 3 === 2
+        ? 'kelp-forest-background'
+        : level % 3 === 0
+          ? 'crystal-cave-background'
+          : 'reef-distant',
+    );
+    scene.setInput({ ...idleInput(), right: true, down: true });
+    for (
+      let frame = 0;
+      frame < 900 && scene.snapshot().status === 'playing';
+      frame++
+    )
+      scene.update(frame * 17, 1000 / 60);
+    expect(scene.snapshot().status).toBe('won');
+    const total = scene.snapshot().totalPearls;
+    const previousObjects = [...scene.children.list];
+    scene.continue();
+    expect(scene.snapshot().status).toBe('playing');
+    expect(scene.snapshot().totalPearls).toBe(total);
+    expect(scene.snapshot().pearls).toBe(0);
+    expect(scene.children.length).toBeLessThan(200);
+    expect(
+      previousObjects.every((object) => !scene.children.list.includes(object)),
+    ).toBe(true);
+    const progress = scene.snapshot().progress;
+    scene.update(0, 100);
+    expect(scene.snapshot().progress).toBe(progress);
+  }
+  scene.restart();
+  expect(scene.snapshot().level).toBe(1);
+  expect(scene.snapshot().totalPearls).toBe(0);
+  expect(scene.children.getByName('lobster')).toBeTruthy();
+}, 30000);

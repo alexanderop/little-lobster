@@ -80,7 +80,7 @@ a:focus-visible {
 .masthead-right {
   display: flex;
   align-items: center;
-  gap: 26px;
+  gap: 12px;
 }
 .edition {
   color: #c5e7fa;
@@ -88,6 +88,7 @@ a:focus-visible {
   font-size: 11px;
 }
 .icon-button {
+  flex-shrink: 0;
   width: 42px;
   height: 42px;
   border: 1px solid #34515a;
@@ -929,5 +930,54 @@ button:disabled {
   }
   .game-notice {
     top: 137px;
+  }
+}
+
+.ocean-app:fullscreen {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  padding: 0;
+  background: var(--background);
+  overflow: hidden;
+}
+.ocean-app:fullscreen .masthead {
+  display: flex;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 8px 16px;
+}
+.ocean-app:fullscreen .game-frame {
+  flex: 1;
+  min-height: 0;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.ocean-app:fullscreen .below-game,
+.ocean-app:fullscreen .chapter-strip,
+.ocean-app:fullscreen .game-footer {
+  display: none;
+}
+@media (max-height: 550px) and (orientation: landscape) {
+  .masthead {
+    display: flex;
+    margin-bottom: 8px;
+  }
+  .game-frame,
+  .game-frame.is-playing {
+    height: calc(100dvh - 66px);
+  }
+  .ocean-app:fullscreen .welcome-content {
+    top: 12%;
+  }
+  .ocean-app:fullscreen h1 {
+    font-size: 48px;
+  }
+  .ocean-app:fullscreen .world-label {
+    display: none;
   }
 }

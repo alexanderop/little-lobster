@@ -1,7 +1,14 @@
+import type { Biome } from './model/level';
 import type { GameEvent, GameState, Input } from './model/simulation';
 
 export type Snapshot = Readonly<{
   status: GameState['status'];
+  level: number;
+  biome: Biome;
+  biomeName: string;
+  totalPearls: number;
+  requiredPearls: number;
+  treasureTotal: number;
   pearls: number;
   health: number;
   progress: number;

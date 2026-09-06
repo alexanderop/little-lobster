@@ -141,3 +141,51 @@ test('the first pearl guarantees electro power and enables the firing control', 
   await page.getByRole('button', { name: 'Start over' }).click();
   await expect(page.getByText(/^Electro \d+s$/)).toHaveCount(0);
 });
+
+test('saved journey plays through kelp, advances to crystal caves and resumes after reload', async ({
+  page,
+  isMobile,
+}) => {
+  await page.goto('/');
+  await page.evaluate(() =>
+    localStorage.setItem(
+      'little-lobster-journey-v1',
+      JSON.stringify({ version: 1, level: 2, seed: 52, pearls: 24 }),
+    ),
+  );
+  await page.reload();
+  await page.getByRole('button', { name: 'Let’s play' }).click();
+  await expect(
+    page.getByText('Level 2 · Kelp Forest', { exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: `test-results/kelp-${isMobile ? 'mobile' : 'desktop'}.png`,
+  });
+  await page.keyboard.down('ArrowRight');
+  await page.keyboard.down('ArrowDown');
+  await page.keyboard.down('Shift');
+  const next = page.getByRole('button', { name: 'Next level' });
+  await expect(next).toBeVisible({ timeout: 25000 });
+  await page.keyboard.up('ArrowRight');
+  await page.keyboard.up('ArrowDown');
+  await page.keyboard.up('Shift');
+  await expect(next).toBeFocused();
+  await next.click();
+  await expect(
+    page.getByText('Level 3 · Crystal Caves', { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('.phaser-host')).toBeFocused();
+  await page.screenshot({
+    path: `test-results/crystal-${isMobile ? 'mobile' : 'desktop'}.png`,
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'Let’s play' }).click();
+  await expect(
+    page.getByText('Level 3 · Crystal Caves', { exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Pause game' }).click();
+  await page.getByRole('button', { name: 'Start over' }).click();
+  await expect(
+    page.getByText('Level 1 · Sunlit Reef', { exact: true }),
+  ).toBeVisible();
+});

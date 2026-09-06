@@ -3,23 +3,10 @@ import { LobsterView } from './LobsterView';
 import { EnemyView } from './EnemyView';
 import { InkCloudView } from './InkCloudView';
 import { ReefScenery } from './ReefScenery';
-import {
-  WORLD,
-  pearlBlocks,
-  region,
-  reefTrial,
-  reefTreasures,
-} from '../model/level';
+import { OceanEffects } from './OceanEffects';
+import { region, biomeNames } from '../model/level';
 import { pearlCount } from '../model/simulation';
 import type { GameState, GameEvent } from '../model/simulation';
-type Particle = {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  color: number;
-};
 
 export class OceanView {
   private electroSprites: Phaser.GameObjects.Image[] = [];
@@ -34,7 +21,13 @@ export class OceanView {
   private treasures: Phaser.GameObjects.Image[];
   private treasureLabels: Phaser.GameObjects.Text[];
   private cameraX = 0;
-  private particles: Particle[] = [];
+  private effects: OceanEffects;
+  private treasureReactions: {
+    lift: number;
+    scale: number;
+    labelAlpha: number;
+  }[];
+  private treasureTweens = new Map<number, Phaser.Tweens.Tween>();
   private enemies = new Map<number, EnemyView>();
   private inkClouds = new Map<number, InkCloudView>();
   private buddy: Phaser.GameObjects.Image;
@@ -44,10 +37,16 @@ export class OceanView {
   readonly lobster: LobsterView;
   constructor(
     private scene: Phaser.Scene,
-    state: GameState,
+    private state: GameState,
   ) {
     const w = scene.scale.width;
-    this.scenery = new ReefScenery(scene);
+    this.treasureReactions = state.treasures.map(() => ({
+      lift: 0,
+      scale: 1,
+      labelAlpha: 1,
+    }));
+    this.effects = new OceanEffects(scene);
+    this.scenery = new ReefScenery(scene, state.level);
     this.shade = scene.add
       .rectangle(0, 0, w, 720, 0x03112e, 0)
       .setOrigin(0)
@@ -58,7 +57,7 @@ export class OceanView {
         .image(pearl.x, pearl.y, 'reef-props', 'pearl')
         .setDisplaySize(25, 25),
     );
-    this.ringLabels = reefTrial.rings.map((ring, index) =>
+    this.ringLabels = state.level.trial.rings.map((ring, index) =>
       scene.add
         .text(ring.x, ring.y, String(index + 1), {
           fontFamily: 'Arial',
@@ -80,7 +79,7 @@ export class OceanView {
         .setName('golden-pearl')
         .setDepth(2),
     );
-    this.treasureLabels = reefTreasures.map((treasure) =>
+    this.treasureLabels = state.level.treasures.map((treasure) =>
       scene.add
         .text(treasure.x, treasure.y + 44, treasure.name, {
           fontFamily: 'Arial',
@@ -97,7 +96,7 @@ export class OceanView {
         .image(block.x, block.y, 'reef-props', 'reward-block')
         .setDisplaySize(52, 52),
     );
-    this.blockLabels = pearlBlocks.map((block) =>
+    this.blockLabels = state.blocks.map((block) =>
       scene.add
         .text(block.x, block.y, '?', {
           fontFamily: 'Arial Black, Arial',
@@ -118,27 +117,51 @@ export class OceanView {
     });
     this.buddy = scene.add.image(3370, 230, 'narwhal').setDisplaySize(190, 150);
     this.shell = scene.add
-      .image(WORLD.exitX, WORLD.exitY, 'reef-props', 'shell-house')
+      .image(
+        state.level.world.exitX,
+        state.level.world.exitY,
+        state.level.biome === 'reef'
+          ? 'reef-props'
+          : state.level.biome === 'kelp'
+            ? 'kelp-forest-props'
+            : 'crystal-cave-props',
+        'shell-house',
+      )
       .setDisplaySize(150, 154)
       .setOrigin(0.5);
     this.lobster = new LobsterView(scene, state);
-    for (const l of [
-      { x: 300, y: 200, t: 'WORLD 1-1  ·  PEARL RESCUE →' },
-      { x: 440, y: 675, t: 'SPACE: jump / swim   SHIFT: dash' },
-      { x: 780, y: 290, t: 'Bump golden blocks from below!' },
-      { x: 1210, y: 200, t: 'BOUNCE TRAIL · 3 stomps without landing' },
-      {
-        x: 1050,
-        y: 655,
-        t: 'Easy pearl path →     ↶ Return here to retry bounces',
-      },
-      { x: 1920, y: 140, t: 'CURRENT RUN · 3 rings in 4 seconds →' },
-      { x: 1710, y: 655, t: 'Ride up ↑  ·  Hold sink to stay low' },
-      { x: 2570, y: 590, t: '✦  CHECKPOINT' },
-      { x: 3370, y: 130, t: 'A friendly face. Swim over to say hello.' },
-      { x: 4910, y: 175, t: 'Bigfin ahead. Slip underneath!' },
-      { x: WORLD.exitX, y: 650, t: 'HOME · 18 PEARLS' },
-    ]) {
+    for (const l of state.level.number === 1
+      ? [
+          { x: 300, y: 200, t: 'WORLD 1-1  ·  PEARL RESCUE →' },
+          { x: 440, y: 675, t: 'SPACE: jump / swim   SHIFT: dash' },
+          { x: 780, y: 290, t: 'Bump golden blocks from below!' },
+          { x: 1210, y: 200, t: 'BOUNCE TRAIL · 3 stomps without landing' },
+          {
+            x: 1050,
+            y: 655,
+            t: 'Easy pearl path →     ↶ Return here to retry bounces',
+          },
+          { x: 1920, y: 140, t: 'CURRENT RUN · 3 rings in 4 seconds →' },
+          { x: 1710, y: 655, t: 'Ride up ↑  ·  Hold sink to stay low' },
+          { x: 2570, y: 590, t: '✦  CHECKPOINT' },
+          { x: 3370, y: 130, t: 'A friendly face. Swim over to say hello.' },
+          { x: 4910, y: 175, t: 'Bigfin ahead. Slip underneath!' },
+          { x: state.level.world.exitX, y: 650, t: 'NEXT LEVEL · 18 PEARLS' },
+        ]
+      : [
+          {
+            x: 410,
+            y: 170,
+            t: `LEVEL ${state.level.number} · ${biomeNames[state.level.biome]}`,
+          },
+          { x: state.level.checkpointX, y: 660, t: '✦ CHECKPOINT' },
+          { x: state.level.world.exitX, y: 650, t: 'NEXT LEVEL · 18 PEARLS' },
+          ...state.level.sections.map((name, index) => ({
+            x: 550 + index * 650,
+            y: 190,
+            t: name,
+          })),
+        ]) {
       this.labels.push({
         x: l.x,
         y: l.y,
@@ -160,12 +183,19 @@ export class OceanView {
   }
 
   reset(state: GameState) {
-    this.particles = [];
+    this.state = state;
+    this.effects.reset();
+    for (const tween of this.treasureTweens.values()) tween.remove();
+    this.treasureTweens.clear();
+    for (const reaction of this.treasureReactions) {
+      reaction.lift = 0;
+      reaction.scale = reaction.labelAlpha = 1;
+    }
     for (const cloud of this.inkClouds.values()) cloud.reset();
     this.cameraX = Math.max(
       0,
       Math.min(
-        WORLD.width - this.scene.scale.width,
+        state.level.world.width - this.scene.scale.width,
         state.player.x - this.scene.scale.width * 0.32,
       ),
     );
@@ -179,7 +209,10 @@ export class OceanView {
     const w = this.scene.scale.width,
       p = state.player,
       t = state.elapsed;
-    const target = Math.max(0, Math.min(WORLD.width - w, p.x - w * 0.32));
+    const target = Math.max(
+      0,
+      Math.min(state.level.world.width - w, p.x - w * 0.32),
+    );
     this.cameraX += (target - this.cameraX) * 0.12;
     if (Math.abs(target - this.cameraX) > w) this.cameraX = target;
     const x = (worldX: number) => worldX - this.cameraX;
@@ -195,7 +228,8 @@ export class OceanView {
       g.lineStyle(1, 0xd3f2e7, 0.23);
       g.strokeCircle(bx, by, 2 + (i % 5));
     }
-    for (const c of [1710, 4050]) {
+    for (const current of state.level.currents) {
+      const c = current.x;
       if (x(c) < -100 || x(c) > w + 100) continue;
       g.fillStyle(0xa5e6cd, 0.07);
       g.fillRoundedRect(x(c) - 60, 170, 120, 470, 40);
@@ -208,7 +242,7 @@ export class OceanView {
         );
       }
     }
-    reefTrial.rings.forEach((ring, index) => {
+    state.level.trial.rings.forEach((ring, index) => {
       const passed =
         state.ringTrial.kind === 'complete' ||
         (state.ringTrial.kind === 'racing' && index < state.ringTrial.nextRing);
@@ -230,12 +264,19 @@ export class OceanView {
         .setAlpha(passed ? 0.4 : 1);
     });
     state.treasures.forEach((treasure, index) => {
+      const reaction = this.treasureReactions[index];
+      const lift = reaction?.lift ?? 0;
       this.treasures[index]
-        ?.setPosition(x(treasure.x), treasure.y + Math.sin(t * 3) * 5)
+        ?.setPosition(x(treasure.x), treasure.y + Math.sin(t * 3) * 5 - lift)
+        .setDisplaySize(
+          42 * (reaction?.scale ?? 1),
+          42 * (reaction?.scale ?? 1),
+        )
         .setVisible(!treasure.collected)
         .setAlpha(treasure.unlocked ? 1 : 0.3);
       this.treasureLabels[index]
         ?.setPosition(x(treasure.x), treasure.y + 42)
+        .setAlpha(treasure.collected ? 1 : (reaction?.labelAlpha ?? 1))
         .setText(
           treasure.collected
             ? '✓ +3 pearls'
@@ -284,22 +325,25 @@ export class OceanView {
       g.lineBetween(x(pearl.x) + 9, py - 14, x(pearl.x) + 17, py - 14);
     });
     g.lineStyle(3, state.checkpoint ? 0xb0f1c3 : 0xa7cbd4, 0.65);
-    g.strokeCircle(x(2570), 485, 31);
+    g.strokeCircle(x(state.level.checkpointX), 485, 31);
     g.fillStyle(0xb5e6d3, 0.12);
-    g.fillCircle(x(2570), 485, 44);
-    const ready = pearlCount(state) >= WORLD.requiredPearls;
+    g.fillCircle(x(state.level.checkpointX), 485, 44);
+    const ready = pearlCount(state) >= state.level.world.requiredPearls;
     g.lineStyle(3, ready ? 0xf7df9b : 0x93babe, 0.65 + 0.2 * Math.sin(t * 3));
-    g.strokeCircle(x(WORLD.exitX), WORLD.exitY, 76);
+    g.strokeCircle(x(state.level.world.exitX), state.level.world.exitY, 76);
     g.fillStyle(0xf4dba8, 0.1);
-    g.fillCircle(x(WORLD.exitX), WORLD.exitY, 92);
-    this.shell?.setPosition(x(WORLD.exitX), WORLD.exitY + Math.sin(t) * 5);
+    g.fillCircle(x(state.level.world.exitX), state.level.world.exitY, 92);
+    this.shell?.setPosition(
+      x(state.level.world.exitX),
+      state.level.world.exitY + Math.sin(t) * 5,
+    );
     for (const e of state.creatures) {
       this.enemies.get(e.id)?.render(e, t, this.cameraX);
       this.inkClouds.get(e.id)?.render(e, t, this.cameraX);
     }
     this.buddy
       ?.setPosition(
-        x(3370 + Math.sin(t * 0.5) * 110),
+        x(state.level.friendX + Math.sin(t * 0.5) * 110),
         230 + Math.sin(t * 0.8) * 35,
       )
       .setRotation(Math.sin(t) * 0.06);
@@ -346,40 +390,47 @@ export class OceanView {
       }
     }
     for (const l of this.labels) l.text.setX(x(l.x));
-    if (state.status === 'playing')
-      for (const part of this.particles) {
-        part.life -= delta / 1000;
-        part.x += (part.vx * delta) / 1000;
-        part.y += (part.vy * delta) / 1000;
-      }
-    this.particles = this.particles.filter((part) => part.life > 0);
-    for (const part of this.particles) {
-      g.fillStyle(part.color, Math.min(1, part.life));
-      g.fillCircle(x(part.x), part.y, 3);
-    }
+    this.effects.render(state, this.cameraX, delta);
+    this.setPlaying(state.status === 'playing');
   }
   burst(event: GameEvent) {
-    const count =
-      event.kind === 'treasure' || event.kind === 'treasure-unlocked' ? 24 : 10;
-    for (let i = 0; i < count; i++) {
-      const angle = (i * Math.PI * 2) / count;
-      this.particles.push({
-        x: event.x,
-        y: event.y,
-        vx: Math.cos(angle) * 90,
-        vy: Math.sin(angle) * 90 - 20,
-        life: 0.7,
-        color:
-          event.kind === 'treasure' ||
-          event.kind === 'treasure-unlocked' ||
-          event.kind === 'ring'
-            ? 0xffd35d
-            : event.kind.startsWith('electro-')
-              ? 0x78efff
-              : event.kind === 'hurt'
-                ? 0xf49c89
-                : 0xe4f7c7,
+    this.effects.burst(event);
+    if (event.kind === 'treasure-unlocked') {
+      const index = this.state.level.treasures.findIndex(
+        (treasure) => treasure.x === event.x && treasure.y === event.y,
+      );
+      const reaction = this.treasureReactions[index];
+      if (!reaction) return;
+      this.treasureTweens.get(index)?.remove();
+      reaction.labelAlpha = 0;
+      const tween = this.scene.tweens.add({
+        targets: reaction,
+        lift: {
+          from: 0,
+          to: 22,
+          duration: 320,
+          yoyo: true,
+          ease: 'Sine.easeInOut',
+        },
+        scale: {
+          from: 1,
+          to: 1.35,
+          duration: 320,
+          yoyo: true,
+          ease: 'Sine.easeInOut',
+        },
+        labelAlpha: { from: 0, to: 1, delay: 220, duration: 420 },
+        onComplete: () => this.treasureTweens.delete(index),
       });
+      this.treasureTweens.set(index, tween);
+    }
+  }
+
+  setPlaying(playing: boolean) {
+    this.effects.setPlaying(playing);
+    for (const tween of this.treasureTweens.values()) {
+      if (playing) tween.resume();
+      else tween.pause();
     }
   }
 }

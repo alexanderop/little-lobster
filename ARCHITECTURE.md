@@ -19,7 +19,7 @@ OceanScene → snapshots → Vue HUD
 
 `Preloader` loads assets and prepares texture frames. A failed asset rejects readiness and prevents gameplay startup. Loader listeners are removed on scene shutdown.
 
-`OceanScene` owns the current simulation state, input snapshot, fixed-step accumulator, and HUD publication interval. It advances the simulation at 60 steps per second, consumes each step's events, and asks the view to render. Paused and completed games stop advancing. Restart clears input, timing, effects, camera position, and animation reactions together. Retry uses the simulation's checkpoint rules before resetting presentation.
+`OceanScene` owns the current simulation state, input snapshot, fixed-step accumulator, and HUD publication interval. It advances the simulation at 60 steps per second, consumes each step's events, and asks the view to render. Paused and completed levels stop advancing. Continuing a completed level creates the next seeded level, destroys the old scene objects and tweens, and rebuilds the view. Textures remain shared across levels. Restart clears input, timing, effects, camera position, and animation reactions together. Retry uses the simulation's checkpoint rules before resetting presentation.
 
 `OceanView` owns the level's Phaser objects and particle effects. `LobsterView` owns the lobster sprite and temporary visual reactions. These classes read gameplay state; they do not keep separate health, position, or collection state. Phaser owns destruction of scene game objects.
 
@@ -27,7 +27,7 @@ The scene composes these objects instead of building an inheritance hierarchy. A
 
 ## Simulation and level data
 
-`model/simulation.ts` owns movement, collisions, damage, collection, checkpoints, and outcomes. It does not import Vue or Phaser. `model/level.ts` contains world dimensions, platforms, block locations, and region names. `hero-animation.ts` selects a sprite frame from simulation state and a visual reaction.
+`model/simulation.ts` owns movement, collisions, damage, collection, checkpoints, and outcomes. It does not import Vue or Phaser. `model/level.ts` contains the original map and `generateLevel`. A level owns its world dimensions, platforms, pearls, blocks, encounters, currents, checkpoint, and environment. The simulation and view consume the same level data. Eight reusable section templates supply later levels, with a continuous seabed route and optional upper paths. `nextLevel` carries completed pearls into a fresh simulation state. `journey.ts` validates saved level, seed, and pearl values at the local-storage boundary. It saves level starts rather than mutable simulation snapshots. `hero-animation.ts` selects a sprite frame from simulation state and a visual reaction.
 
 A new gameplay rule belongs in the simulation with an observable regression test. A visual reaction belongs in a view class. Changing physics ownership would require a separate design and gameplay comparison; the Vue migration preserves the existing custom simulation.
 
