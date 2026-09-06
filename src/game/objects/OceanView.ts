@@ -159,7 +159,8 @@ export class OceanView {
           { x: 1710, y: 655, t: 'Ride up ↑  ·  Hold sink to stay low' },
           { x: 2570, y: 590, t: '✦  CHECKPOINT' },
           { x: 3370, y: 130, t: 'A friendly face. Swim over to say hello.' },
-          { x: 4910, y: 175, t: 'Bigfin ahead · Dash, stomp, or shoot!' },
+          { x: 4800, y: 175, t: 'GORILLA · Dodge bananas · Two hits!' },
+          { x: 5530, y: 110, t: 'Bigfin · Dash, stomp, or shoot!' },
           { x: state.level.world.exitX, y: 650, t: 'NEXT LEVEL · 18 PEARLS' },
         ]
       : state.level.number === 2

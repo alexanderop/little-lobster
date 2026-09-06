@@ -105,3 +105,20 @@ test('dash and stomp each remove one gorilla HP', () => {
     expect(state.player.health).toBe(3);
   }
 });
+
+test('opening-level reward block does not swallow a banana at release', () => {
+  for (const elapsed of [0, 0.2, 0.5, 1, 2, 4, 6]) {
+    const state = createGame();
+    const enemy = state.creatures.find((enemy) => enemy.kind === 'gorilla');
+    if (!enemy?.boss) throw new Error('Missing gorilla');
+    state.elapsed = elapsed;
+    state.friend = true;
+    state.player.x = enemy.homeX - 250;
+    state.player.y = 500;
+    enemy.boss.cooldown = 0;
+    advance(state, idleInput(), 1 / 60);
+    expect(state.bananas, 'release at ' + elapsed).toHaveLength(1);
+    for (let frame = 0; frame < 6; frame++) advance(state, idleInput(), 1 / 60);
+    expect(state.bananas, 'visible flight at ' + elapsed).toHaveLength(1);
+  }
+});

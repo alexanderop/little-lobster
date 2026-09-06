@@ -650,8 +650,12 @@ export function advance(
             enemy.boss.throwTime = 0.25;
             const facing = p.x < enemy.x ? -1 : 1;
             const x = enemy.x + facing * 66;
-            const y = enemy.y - 28;
-            const flight = Math.max(0.65, Math.abs(p.x - x) / 300);
+            let y = enemy.y - 28;
+            for (const block of state.blocks) {
+              if (Math.abs(x - block.x) < 52 && Math.abs(y - block.y) < 52)
+                y = block.y - 52;
+            }
+            const flight = Math.max(1.1, Math.abs(p.x - x) / 300);
             state.bananas.push({
               x,
               y,

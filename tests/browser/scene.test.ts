@@ -445,7 +445,6 @@ test('gorilla shows two HP, animates windup and release, and renders spinning ba
   const state = createGame();
   const enemy = state.creatures.find((enemy) => enemy.kind === 'gorilla');
   if (!enemy?.boss) throw new Error('Missing gorilla');
-  state.blocks = [];
   state.player.x = enemy.x - 250;
   state.player.y = enemy.y;
   const { scene } = await boot(state);
@@ -460,6 +459,12 @@ test('gorilla shows two HP, animates windup and release, and renders spinning ba
   )
     throw new Error('Missing gorilla art or HP');
   expect(label.text).toContain('2/2 HP');
+  const signs = scene.children.list.filter(
+    (child) =>
+      child instanceof Phaser.GameObjects.Text &&
+      child.text.includes('Two hits'),
+  );
+  expect(signs).toHaveLength(1);
   enemy.boss.cooldown = 0.3;
   scene.update(0, 16);
   expect(pose.frame.name).toBe(1);
@@ -481,4 +486,29 @@ test('gorilla shows two HP, animates windup and release, and renders spinning ba
   expect(pose.tintTopLeft).toBe(0xff9999);
   scene.restart();
   expect(scene.children.getByName('banana')).toBeNull();
+});
+
+test('gorilla naturally winds up and throws visible bananas in the unchanged opening level', async () => {
+  const state = createGame();
+  const enemy = state.creatures.find((enemy) => enemy.kind === 'gorilla');
+  if (!enemy) throw new Error('Missing gorilla');
+  state.player.x = enemy.x - 250;
+  state.player.y = 500;
+  state.player.invincible = 10;
+  const { scene } = await boot(state);
+  const container = scene.children.getByName('enemy-' + enemy.id);
+  if (!(container instanceof Phaser.GameObjects.Container))
+    throw new Error('Missing gorilla');
+  const pose = container.getByName('gorilla-pose');
+  if (!(pose instanceof Phaser.GameObjects.Image))
+    throw new Error('Missing pose');
+  const frames = new Set<string | number>();
+  let visibleBananaFrames = 0;
+  for (let frame = 0; frame < 180; frame++) {
+    scene.update(frame * 17, 1000 / 60);
+    frames.add(pose.frame.name);
+    if (scene.children.getByName('banana')) visibleBananaFrames++;
+  }
+  expect(frames).toEqual(new Set([0, 1, 2]));
+  expect(visibleBananaFrames).toBeGreaterThan(20);
 });
